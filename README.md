@@ -5,13 +5,13 @@ JobTailor is an AI-powered web application designed to act as a personal career 
 ---
 
 ##  Features at a Glance
-- 📄 **Smart Resume Tailoring** → Upload a resume and a job description to get an optimized, tailored version and a new ATS score.
-- 🏗️ **AI-Powered Resume Builder** → Upload a document (PDF, DOCX)  and let AI structure it into a professional resume.
-- 🎨 **Live Template-Based Preview** → See your resume update in real-time with a choice of professional templates (Classic, Modern, Creative).
-- ✏️ **AI-Powered Polishing** → Instantly rewrite and improve any section of your resume with one click.
-- 📊 **Detailed ATS Analysis** → Get a realistic ATS score breakdown based on role match, experience, and skills.
-- 🚀 **Full Application Kit Generation** → Automatically generate a tailored cover letter, skill gap analysis, and interview prep questions.
-- 📥 **Export Option** → Download your final resume as a polished PDF.
+📄 **Smart Resume Tailoring** → Upload a resume and a job description to get an optimized, tailored version and a new ATS score.
+🏗️ **AI-Powered Resume Builder** → Upload a document (PDF, DOCX)  and let AI structure it into a professional resume.
+🎨 **Live Template-Based Preview** → See your resume update in real-time with a choice of professional templates (Classic, Modern, Creative).
+✏️ **AI-Powered Polishing** → Instantly rewrite and improve any section of your resume with one click.
+📊 **Detailed ATS Analysis** → Get a realistic ATS score breakdown based on role match, experience, and skills.
+🚀 **Full Application Kit Generation** → Automatically generate a tailored cover letter, skill gap analysis, and interview prep questions.
+📥 **Export Option** → Download your final resume as a polished PDF.
 
 ---
 
@@ -34,16 +34,15 @@ JobTailor is an AI-powered web application designed to act as a personal career 
 ### 2️⃣ Build a Resume from Scratch
 > No resume? No problem — build one with AI assistance.
 
-- ✍️ **Manual Builder & AI Polishing**: Manually enter your details and use the "AI Polish" feature on any section to instantly improve it.
-- 🎨 **Template Picker**: Choose and live-preview different professional designs (Classic, Modern, Creative) and regional formats (North American, European).
-- 📂 **Export as PDF/DOCX**: Download your finished resume, ready to be used for applications or in the "Tailor" path.
+✍️ **Manual Builder & AI Polishing**: Manually enter your details and use the "AI Polish" feature on any section to instantly improve it.
+🎨 **Template Picker**: Choose and live-preview different professional designs (Classic, Modern, Creative) and regional formats (North American, European).
+📂 **Export as PDF/DOCX**: Download your finished resume, ready to be used for applications or in the "Tailor" path.
 
 ---
 
 ## 🧠 Tech Stack
 - **Frontend** → Next.js 15, TypeScript, TailwindCSS, ShadCN UI
 - **AI Layer** → Google Gemini-2.5-flash
-- **Text Extraction** → pdf.js, mammoth.js
 
 ---
 
