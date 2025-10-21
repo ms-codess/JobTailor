@@ -5,15 +5,15 @@ JobTailor is an AI-powered web application designed to act as a personal career 
 ---
 
 ##  Features at a Glance
-📄 **Smart Resume Tailoring** → Upload a resume and a job description to get an optimized, tailored version and a new ATS score.
+**Smart Resume Tailoring** → Upload a resume and a job description to get an optimized, tailored version and a new ATS score.
 
-🏗️ **AI-Powered Resume Builder** → Upload a document (PDF, DOCX)  and let AI structure it into a professional resume.
+**AI-Powered Resume Builder** → Upload a document (PDF, DOCX)  and let AI structure it into a professional resume.
 
-🎨 **Live Template-Based Preview** → See your resume update in real-time with a choice of professional templates (Classic, Modern, Creative).
+**Live Template-Based Preview** → See your resume update in real-time with a choice of professional templates (Classic, Modern, Creative).
 
-✏️ **AI-Powered Polishing** → Instantly rewrite and improve any section of your resume with one click.
+**AI-Powered Polishing** → Instantly rewrite and improve any section of your resume with one click.
 
-📊 **Detailed ATS Analysis** → Get a realistic ATS score breakdown based on role match, experience, and skills.
+**Detailed ATS Analysis** → Get a realistic ATS score breakdown based on role match, experience, and skills.
 
 ---
 
