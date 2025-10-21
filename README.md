@@ -20,9 +20,9 @@ JobTailor is an AI-powered web application designed to act as a personal career 
 ##  The 2 Paths of JobTailor
 
 ### 1️⃣ Tailor for a Specific Job
-> Make your resume and cover letter match a job description perfectly.
+
 - Upload your **resume** (PDF/DOCX/TXT) + paste a **job description**.
-- ⚡ **Full Report Generation**: AI generates a complete application kit, including:
+-  **Full Report Generation**: AI generates a complete application kit, including:
   - An initial ATS score of your original resume.
   - A fully tailored resume with an improved ATS score.
   - A professional cover letter.
@@ -34,7 +34,7 @@ JobTailor is an AI-powered web application designed to act as a personal career 
 ---
 
 ### 2️⃣ Build a Resume from Scratch
-> No resume? No problem — build one with AI assistance.
+
 
 ✍️ **Manual Builder & AI Polishing**: Manually enter your details and use the "AI Polish" feature on any section to instantly improve it.
 🎨 **Template Picker**: Choose and live-preview different professional designs (Classic, Modern, Creative) and regional formats (North American, European).
@@ -42,13 +42,13 @@ JobTailor is an AI-powered web application designed to act as a personal career 
 
 ---
 
-## 🧠 Tech Stack
+##  Tech Stack
 - **Frontend** → Next.js 15, TypeScript, TailwindCSS, ShadCN UI
 - **AI Layer** → Google Gemini-2.5-flash
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - Node.js 18+
