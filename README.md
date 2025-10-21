@@ -28,17 +28,19 @@ JobTailor is an AI-powered web application designed to act as a personal career 
   - A professional cover letter.
   - A skill-gap analysis with suggested certifications.
   - A list of likely interview questions and answers.
-- ✏️ **Live Editing**: Tweak or regenerate sections in real-time and see the preview update instantly.
-- 📥 **Download** your polished resume (PDF) and cover letter.
+- **Live Editing**: Tweak or regenerate sections in real-time and see the preview update instantly.
+-  **Download** your resume (PDF) and cover letter.
 
 ---
 
 ### 2️⃣ Build a Resume from Scratch
 
 
-✍️ **Manual Builder & AI Polishing**: Manually enter your details and use the "AI Polish" feature on any section to instantly improve it.
-🎨 **Template Picker**: Choose and live-preview different professional designs (Classic, Modern, Creative) and regional formats (North American, European).
-📂 **Export as PDF/DOCX**: Download your finished resume, ready to be used for applications or in the "Tailor" path.
+ **Manual Builder & AI Polishing**: Manually enter your details and use the "AI Polish" feature on any section to instantly improve it.
+ 
+**Template Picker**: Choose and live-preview different professional designs (Classic, Modern, Creative) and regional formats (North American, European).
+
+**Export as PDF/DOCX**: Download your finished resume, ready to be used for applications or in the "Tailor" path.
 
 ---
 
