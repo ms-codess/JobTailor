@@ -1,10 +1,10 @@
-# 🎯 JobTailor — Your Career Assistant
+# JobTailor — Your Career Assistant
 
 JobTailor is an AI-powered web application designed to act as a personal career assistant. It helps job seekers optimize their applications by intelligently tailoring their resume for any job description, or building a new one from scratch.
 
 ---
 
-## ✨ Features at a Glance
+##  Features at a Glance
 - 📄 **Smart Resume Tailoring** → Upload a resume and a job description to get an optimized, tailored version and a new ATS score.
 - 🏗️ **AI-Powered Resume Builder** → Upload a document (PDF, DOCX)  and let AI structure it into a professional resume.
 - 🎨 **Live Template-Based Preview** → See your resume update in real-time with a choice of professional templates (Classic, Modern, Creative).
@@ -15,7 +15,7 @@ JobTailor is an AI-powered web application designed to act as a personal career 
 
 ---
 
-## 🛠️ The 2 Paths of JobTailor
+##  The 2 Paths of JobTailor
 
 ### 1️⃣ Tailor for a Specific Job
 > Make your resume and cover letter match a job description perfectly.
