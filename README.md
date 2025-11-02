@@ -1,6 +1,7 @@
 # JobTailor — Your Career Assistant
 
 JobTailor is an AI-powered web application designed to act as a personal career assistant. It helps job seekers optimize their applications by intelligently tailoring their resume for any job description, or building a new one from scratch.
+[Click here to view the web application](https://job-tailor-delta.vercel.app/)
 
 ---
 
