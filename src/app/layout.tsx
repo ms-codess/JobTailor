@@ -30,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <body className={cn("font-body antialiased bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-[#0b0612] dark:via-[#0e0718] dark:to-[#12091e]", fontBody.variable, fontHeadline.variable)}>
+      <body className={cn("font-body antialiased bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-[#141223] dark:via-[#19182d] dark:to-[#1f1e36]", fontBody.variable, fontHeadline.variable)}>
         {/* Global decorative background */}
         <div className="pointer-events-none fixed inset-0 -z-10">
           <div className="absolute inset-0 -z-10 opacity-30"><img src="/patterns/grid.svg" alt="" className="h-full w-full object-cover"/></div>
