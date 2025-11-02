@@ -30,6 +30,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source:
+          '/images/pngtree-soft-geometric-shapes-in-light-purple-modern-and-elegant-background-design-image_16152077.jpg',
+        destination: '/patterns/grid.svg',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

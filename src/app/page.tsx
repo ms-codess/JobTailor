@@ -31,7 +31,7 @@ export default function Home() {
         <section className="container mx-auto px-4 py-16 md:py-24">
           <div className="flex justify-center text-center">
              <div className="max-w-3xl">
-                <h2 className="font-headline text-4xl font-bold tracking-tight text-primary sm:text-5xl md:text-6xl">
+                <h2 className="font-headline text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl">
                   Your Resume. Smarter.
                 </h2>
                 <p className="mt-6 text-lg text-muted-foreground md:text-xl">
@@ -50,7 +50,7 @@ export default function Home() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Search className="h-6 w-6" />
                   </div>
-                  <CardTitle className="font-headline text-xl font-bold text-card-foreground">
+                  <CardTitle className="font-headline text-xl font-bold text-foreground">
                     Tailor for a Job
                   </CardTitle>
                 </div>
@@ -76,7 +76,7 @@ export default function Home() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <FilePlus className="h-6 w-6" />
                   </div>
-                  <CardTitle className="font-headline text-xl font-bold text-card-foreground">
+                  <CardTitle className="font-headline text-xl font-bold text-foreground">
                     Build from Scratch
                   </CardTitle>
                 </div>
@@ -100,3 +100,4 @@ export default function Home() {
     </div>
   );
 }
+

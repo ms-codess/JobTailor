@@ -95,7 +95,7 @@ export function ResumeInputForm({
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl flex items-center">
+        <CardTitle className="font-headline text-2xl text-foreground flex items-center">
           <Sparkles className="mr-2 h-6 w-6 text-primary" />
           Start Here
         </CardTitle>

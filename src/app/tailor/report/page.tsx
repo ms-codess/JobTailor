@@ -1,4 +1,4 @@
-﻿
+
 'use client';
 
 import { useState, useRef, useEffect, Suspense, ChangeEvent } from 'react';
@@ -750,7 +750,7 @@ function ReportContent() {
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="font-headline text-2xl flex items-center">
+                        <CardTitle className="font-headline text-2xl text-foreground flex items-center">
                           <Edit className="mr-2 h-6 w-6" />
                           Your Tailored Resume
                         </CardTitle>
@@ -778,7 +778,7 @@ function ReportContent() {
               <Card className="hidden">
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-3">
-                    <CardTitle className="font-headline text-xl whitespace-nowrap">Live Preview</CardTitle>
+                    <CardTitle className="font-headline text-xl text-foreground whitespace-nowrap">Live Preview</CardTitle>
                         <div className="flex items-center gap-2">
                            <Label htmlFor="region" className="text-xs">Region</Label>
                             <Select value={region} onValueChange={setRegion}>
@@ -805,7 +805,7 @@ function ReportContent() {
                         </div>
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                               <Button className="ml-auto" size="sm" disabled={isExporting}>
+                               <Button className="ml-auto btn-primary" size="sm" disabled={isExporting}>
                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                                {isExporting ? 'Exporting...' : 'Export'} 
                                </Button>
@@ -862,9 +862,9 @@ function ReportContent() {
               </Card>
 
                 <div ref={splitContainerRef} className="flex flex-col lg:flex-row gap-6 items-start w-full">
-                  <Card className="h-[110vh]" style={{ width: isLg ? `${editorWidthPct}%` : '100%' }}>
+                  <Card className="h-[110vh] backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/80 border border-white/50 shadow-xl" style={{ width: isLg ? `${editorWidthPct}%` : '100%' }}>
                     <CardHeader>
-                      <CardTitle className="font-headline text-xl">Edit</CardTitle>
+                      <CardTitle className="font-headline text-xl text-foreground">Edit</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 h-[calc(110vh-5rem)] overflow-auto">
                       <ResumeEditor noScroll resumeData={resumeData} setResumeData={setResumeData} />
@@ -879,10 +879,10 @@ function ReportContent() {
                     onMouseDown={() => setIsDraggingSplit(true)}
                     onTouchStart={() => setIsDraggingSplit(true)}
                   />
-                  <Card className="h-[110vh]" style={{ width: isLg ? `${100 - editorWidthPct}%` : '100%' }}>
+                  <Card className="h-[110vh] backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/80 border border-white/50 shadow-xl" style={{ width: isLg ? `${100 - editorWidthPct}%` : '100%' }}>
                     <CardHeader>
                       <div className="flex items-center justify-between flex-wrap gap-3">
-                        <CardTitle className="font-headline text-xl whitespace-nowrap">Preview</CardTitle>
+                      <CardTitle className="font-headline text-xl text-foreground whitespace-nowrap">Preview</CardTitle>
                         <div className="flex items-center gap-2">
                           <Label htmlFor="region" className="text-xs">Region</Label>
                           <Select value={region} onValueChange={setRegion}>
@@ -908,7 +908,7 @@ function ReportContent() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button className="ml-auto" size="sm" disabled={isExporting}>
+                            <Button className="ml-auto btn-primary" size="sm" disabled={isExporting}>
                               {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                               {isExporting ? 'Exporting...' : 'Export'}
                             </Button>
@@ -1145,4 +1145,6 @@ export default function ReportPage() {
         </div>
     )
 }
+
+
 

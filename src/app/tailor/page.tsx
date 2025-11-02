@@ -72,7 +72,7 @@ export default function TailorPage() {
       <main className="flex-1">
         <section className="container mx-auto px-4 py-12 md:py-20">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="font-headline text-3xl font-bold tracking-tight text-primary sm:text-4xl md:text-5xl">
+            <h2 className="font-headline text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl animate-fade-in-up">
               Tailor Your Resume in a Flash
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
@@ -95,3 +95,8 @@ export default function TailorPage() {
 }
 
     
+
+
+
+
+
