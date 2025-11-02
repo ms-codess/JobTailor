@@ -83,3 +83,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Anti-copy defaults: disable selection globally, allow on inputs/textareas and opt-in class */
+* {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+input, textarea, [contenteditable="true"], .allow-select {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Reduce image dragging to make copying harder */
+img, a img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}

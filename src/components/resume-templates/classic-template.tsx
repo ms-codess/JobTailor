@@ -1,7 +1,7 @@
-
+﻿
 'use client';
 
-import type { FormData } from '@/app/build/page';
+import type { FormData } from '@/types/resume';
 import { Mail, Phone, MapPin, Link as LinkIcon } from 'lucide-react';
 
 interface ClassicTemplateProps {
@@ -18,7 +18,7 @@ export function ClassicTemplate({ data }: ClassicTemplateProps) {
           <span className="flex items-center gap-1"><Mail size={11}/> {basics.email}</span>
           <span className="flex items-center gap-1"><Phone size={11}/> {basics.phone}</span>
           <span className="flex items-center gap-1"><MapPin size={11}/> {basics.location}</span>
-          {basics.links.map(link => (
+          {basics.links.map((link: {label: string; url: string}) => (
             <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
               <LinkIcon size={11}/> {link.label}
             </a>
@@ -32,7 +32,7 @@ export function ClassicTemplate({ data }: ClassicTemplateProps) {
 
       <div className="mb-4">
         <h2 className="text-base font-bold border-b border-gray-300 pb-1 mb-2 uppercase tracking-wider">Experience</h2>
-        {experience.map((exp, index) => (
+        {experience.map((exp: {role: string; years: string; company: string; description: string}, index: number) => (
           <div key={index} className="mb-3">
             <div className="flex justify-between">
               <h3 className="font-bold text-[11pt]">{exp.role}</h3>
@@ -40,7 +40,7 @@ export function ClassicTemplate({ data }: ClassicTemplateProps) {
             </div>
             <p className="italic text-[10pt] mb-1">{exp.company}</p>
             <div className="prose prose-sm max-w-none text-gray-700 text-[10pt]">
-              {exp.description.split('\n').map((line, i) => (line.trim() ? <p key={i} className="my-0.5">{line}</p> : null))}
+              {exp.description.split('\n').map((line: string, i: number) => (line.trim() ? <p key={i} className="my-0.5">{line}</p> : null))}
             </div>
           </div>
         ))}
@@ -48,7 +48,7 @@ export function ClassicTemplate({ data }: ClassicTemplateProps) {
 
       <div className="mb-4">
         <h2 className="text-base font-bold border-b border-gray-300 pb-1 mb-2 uppercase tracking-wider">Education</h2>
-        {education.map((edu, index) => (
+        {education.map((edu: {school: string; degree: string; year: string}, index: number) => (
           <div key={index} className="flex justify-between mb-1">
             <div>
               <h3 className="font-bold text-[11pt]">{edu.school}</h3>
@@ -59,11 +59,11 @@ export function ClassicTemplate({ data }: ClassicTemplateProps) {
         ))}
       </div>
 
-      {customSections.map((section, index) => (
+      {customSections.map((section: {title: string; content: string}, index: number) => (
         <div key={index} className="mb-4">
           <h2 className="text-base font-bold border-b border-gray-300 pb-1 mb-2 uppercase tracking-wider">{section.title}</h2>
           <div className="prose prose-sm max-w-none text-gray-700 text-[10pt]">
-            {section.content.split('\n').map((line, i) => <p key={i} className="my-0.5">{line}</p>)}
+            {section.content.split('\n').map((line: string, i: number) => <p key={i} className="my-0.5">{line}</p>)}
           </div>
         </div>
        ))}
@@ -71,24 +71,28 @@ export function ClassicTemplate({ data }: ClassicTemplateProps) {
       {skills && skills.length > 0 && <div className="mb-4">
         <h2 className="text-base font-bold border-b border-gray-300 pb-1 mb-2 uppercase tracking-wider">Skills</h2>
         <p className="text-[10pt]">
-          {skills.join(' · ')}
+          {skills.join(' • ')}
         </p>
       </div>}
       
       {certifications && certifications.length > 0 && <div className="mb-4">
         <h2 className="text-base font-bold border-b border-gray-300 pb-1 mb-2 uppercase tracking-wider">Certifications</h2>
         <p className="text-[10pt]">
-          {certifications.join(' · ')}
+          {certifications.join(' • ')}
         </p>
       </div>}
       
       {languages && languages.length > 0 && <div className="mb-4">
         <h2 className="text-base font-bold border-b border-gray-300 pb-1 mb-2 uppercase tracking-wider">Languages</h2>
         <p className="text-[10pt]">
-          {languages.join(' · ')}
+          {languages.join(' • ')}
         </p>
       </div>}
 
     </div>
   );
 }
+
+
+
+

@@ -1,6 +1,6 @@
 
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
-import type { FormData } from "@/app/build/page";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from "docx";
+import type { FormData } from "@/types/resume";
 
 export async function generateDocx(data: FormData): Promise<Blob> {
   const doc = new Document({
@@ -39,7 +39,7 @@ export async function generateDocx(data: FormData): Promise<Blob> {
            new Paragraph({
             text: "Experience",
             heading: HeadingLevel.HEADING_1,
-            border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+            border: { bottom: { color: "auto", space: 1, style: BorderStyle.SINGLE, size: 6 } },
           }),
           ...data.experience.flatMap((exp) => [
             new Paragraph({
@@ -61,7 +61,7 @@ export async function generateDocx(data: FormData): Promise<Blob> {
           new Paragraph({
             text: "Education",
             heading: HeadingLevel.HEADING_1,
-            border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+            border: { bottom: { color: "auto", space: 1, style: BorderStyle.SINGLE, size: 6 } },
           }),
           ...data.education.map(
             (edu) =>
@@ -77,7 +77,7 @@ export async function generateDocx(data: FormData): Promise<Blob> {
            new Paragraph({
             text: "Skills",
             heading: HeadingLevel.HEADING_1,
-            border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+            border: { bottom: { color: "auto", space: 1, style: BorderStyle.SINGLE, size: 6 } },
           }),
           new Paragraph({
               text: data.skills.join(' · '),
@@ -88,7 +88,7 @@ export async function generateDocx(data: FormData): Promise<Blob> {
             new Paragraph({
               text: "Certifications",
               heading: HeadingLevel.HEADING_1,
-              border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+              border: { bottom: { color: "auto", space: 1, style: BorderStyle.SINGLE, size: 6 } },
             }),
             new Paragraph({
               text: data.certifications.join(' · '),
@@ -100,7 +100,7 @@ export async function generateDocx(data: FormData): Promise<Blob> {
              new Paragraph({
               text: "Languages",
               heading: HeadingLevel.HEADING_1,
-              border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+              border: { bottom: { color: "auto", space: 1, style: BorderStyle.SINGLE, size: 6 } },
             }),
             new Paragraph({
                 text: data.languages.join(' · '),
@@ -112,7 +112,7 @@ export async function generateDocx(data: FormData): Promise<Blob> {
             new Paragraph({
                 text: section.title,
                 heading: HeadingLevel.HEADING_1,
-                border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+                border: { bottom: { color: "auto", space: 1, style: BorderStyle.SINGLE, size: 6 } },
             }),
             ...section.content.split('\n').map(item => new Paragraph({ text: item })),
           ])

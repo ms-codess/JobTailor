@@ -1,4 +1,4 @@
-
+﻿
 'use client';
 
 import { useState, useRef, useEffect, Suspense, ChangeEvent } from 'react';
@@ -39,7 +39,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import type { FormData as ResumeFormData } from '@/app/build/page';
+import type { FormData as ResumeFormData } from '@/types/resume';
 import {
   Dialog,
   DialogContent,
@@ -57,7 +57,6 @@ import { Badge } from '@/components/ui/badge';
 import { jobHuntingFacts } from '@/lib/job-hunting-facts';
 import { AtsScoreBreakdown } from '@/components/job-tailor/ats-score-breakdown';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AtsExplanation } from '@/components/job-tailor/ats-explanation';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -114,6 +113,7 @@ type FullReportData = GenerateTailoredResumeOutput & Partial<CoverLetterOutput> 
 
 function ReportContent() {
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -124,7 +124,12 @@ function ReportContent() {
   const [region, setRegion] = useState('north-american');
   const [resumeData, setResumeData] = useState<ResumeFormData | null>(null);
   const [randomFact, setRandomFact] = useState('');
-  const [activeTab, setActiveTab] = useState('analysis');
+  const [activeTab, setActiveTab] = useState('resume');
+  const [resumeView, setResumeView] = useState<'edit' | 'split' | 'preview'>('split');
+  const [previewScale, setPreviewScale] = useState<number>(0.85);
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
+  const [editorScale, setEditorScale] = useState<number>(0.9);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const [careerPathData, setCareerPathData] = useState<SuggestCareerPathOutput | null>(null);
   const [loadingCareerPath, setLoadingCareerPath] = useState(false);
   const [loadingTabs, setLoadingTabs] = useState({
@@ -133,6 +138,11 @@ function ReportContent() {
     'interview-prep': false,
   });
   const [isExporting, setIsExporting] = useState(false);
+  // Split layout state
+  const splitContainerRef = useRef<HTMLDivElement | null>(null);
+  const [editorWidthPct, setEditorWidthPct] = useState<number>(50);
+  const [isDraggingSplit, setIsDraggingSplit] = useState(false);
+  const [isLg, setIsLg] = useState(false);
 
 
   useEffect(() => {
@@ -165,7 +175,7 @@ function ReportContent() {
       });
 
       try {
-          const promises = [];
+          const promises: Promise<any>[] = [];
           if (needsCoverLetter) promises.push(generateCoverLetter(input).catch(e => ({error: 'coverLetter', details: e})));
           if (needsSkillAnalysis) promises.push(generateSkillAnalysis(input).catch(e => ({error: 'skillAnalysis', details: e})));
           if (needsInterviewPrep) promises.push(generateInterviewPrep(input).catch(e => ({error: 'interviewPrep', details: e})));
@@ -187,12 +197,8 @@ function ReportContent() {
               }
           });
 
-          if(hadError) {
-             toast({
-              title: 'Partial report generated',
-              description: 'Some parts of the report could not be generated. Please try again later.',
-              variant: 'destructive',
-            });
+          if (hadError) {
+            console.error('Some parts of the report could not be generated.');
           }
 
           setFullReport(prev => {
@@ -205,11 +211,7 @@ function ReportContent() {
           });
 
       } catch (e: any) {
-          toast({
-              title: 'Failed to load additional materials',
-              description: e.message || 'Some parts of the report could not be generated.',
-              variant: 'destructive',
-          });
+          console.error('Failed to load additional materials', e);
       } finally {
           setLoadingTabs({
               'cover-letter': false,
@@ -223,11 +225,7 @@ function ReportContent() {
   useEffect(() => {
     const cacheKey = searchParams.get('key');
     if (!cacheKey) {
-        toast({
-            title: 'Error',
-            description: 'Missing report key. Please go back and try again.',
-            variant: 'destructive',
-        });
+        setErrorMessage('Missing report key. Please go back and try again.');
         setLoading(false);
         return;
     }
@@ -240,11 +238,7 @@ function ReportContent() {
         const jobDescription = localStorage.getItem(`jd_${cacheKey}`);
 
         if (!resumeText || !jobDescription) {
-            toast({
-                title: 'Error',
-                description: 'Could not find the required data to generate a report. Please try again.',
-                variant: 'destructive',
-            });
+            setErrorMessage('Could not find the required data to generate a report. Please try again.');
             router.push('/tailor');
             return;
         }
@@ -256,7 +250,6 @@ function ReportContent() {
             setFullReport(reportData);
             setResumeData(reportData.tailoredResume);
             setLoading(false);
-            toast({ title: 'Loaded from cache!', description: 'This report was loaded from your previous session.' });
             generateAdditionalReportData(cacheKey, input);
             return;
         }
@@ -274,11 +267,7 @@ function ReportContent() {
             generateAdditionalReportData(cacheKey, { resumeText, jobDescription });
 
         } catch (e: any) {
-            toast({
-                title: 'Generation Failed',
-                description: e.message || 'An unexpected error occurred.',
-                variant: 'destructive',
-            });
+            setErrorMessage(e?.message || 'An unexpected error occurred while generating your report.');
         } finally {
             setLoading(false);
         }
@@ -338,6 +327,95 @@ function ReportContent() {
     }
   };
 
+  // Auto-fit preview within its container (minimize unused space)
+  useEffect(() => {
+    if (!previewContainerRef.current) return;
+    const container = previewContainerRef.current;
+    const ro = new ResizeObserver(() => {
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const pageW = 8.5 * 96; // px
+      const pageH = 11 * 96;  // px
+      // Fit to the smaller of width/height to reduce whitespace
+      const scale = Math.min(cw / pageW, ch / pageH) * 0.99;
+      const clamped = Math.max(0.4, Math.min(1.0, scale));
+      setPreviewScale(clamped);
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [resumeView]);
+
+  // Sectioned editor control
+  const [editSection, setEditSection] = useState<'basics' | 'education' | 'experience' | 'skills' | 'custom'>('basics');
+
+  // Auto-fit editor within its container (show all fields, no scroll) for Split view
+  useEffect(() => {
+    if (!editorContainerRef.current) return;
+    const el = editorContainerRef.current;
+    const ro = new ResizeObserver(() => {
+      const cw = el.clientWidth;
+      const ch = el.clientHeight;
+      const targetW = 900; // estimated full-form width
+      const targetH = 1500; // estimated full-form height with all fields
+      const scale = Math.min(cw / targetW, ch / targetH);
+      const clamped = Math.max(0.55, Math.min(1.0, scale));
+      setEditorScale(clamped);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [resumeData]);
+  // (Preview fit handled above)
+
+  // Track viewport breakpoint for responsive split behavior
+  useEffect(() => {
+    const updateIsLg = () => setIsLg(typeof window !== 'undefined' && window.innerWidth >= 1024);
+    updateIsLg();
+    window.addEventListener('resize', updateIsLg);
+    return () => window.removeEventListener('resize', updateIsLg);
+  }, []);
+
+  // Drag handlers for split resize
+  useEffect(() => {
+    if (!isDraggingSplit) return;
+    const onMove = (e: MouseEvent) => {
+      if (!splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const relX = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+      const pct = (relX / rect.width) * 100;
+      const clamped = Math.max(25, Math.min(75, pct));
+      setEditorWidthPct(clamped);
+    };
+    const onUp = () => setIsDraggingSplit(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [isDraggingSplit]);
+
+  // Touch support for split resize
+  useEffect(() => {
+    if (!isDraggingSplit) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (!splitContainerRef.current) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const relX = Math.min(Math.max(touch.clientX - rect.left, 0), rect.width);
+      const pct = (relX / rect.width) * 100;
+      const clamped = Math.max(25, Math.min(75, pct));
+      setEditorWidthPct(clamped);
+    };
+    const onTouchEnd = () => setIsDraggingSplit(false);
+    window.addEventListener('touchmove', onTouchMove);
+    window.addEventListener('touchend', onTouchEnd);
+    return () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isDraggingSplit]);
+
 
   const renderTemplate = () => {
     if (!resumeData) return null;
@@ -385,49 +463,98 @@ function ReportContent() {
           import('html2canvas').then(m => m.default),
         ]);
 
-        // Temporarily scale up for high-resolution capture
+        // Capture DOM size, anchor link rects, and render at scale(1)
         const originalTransform = input.style.transform;
         input.style.transform = 'scale(1)';
         input.style.transformOrigin = 'top left';
 
+        const inputRect = input.getBoundingClientRect();
+        const anchors = Array.from(input.querySelectorAll('a[href]')) as HTMLAnchorElement[];
+        const linkRects = anchors.map(a => {
+          const r = a.getBoundingClientRect();
+          return {
+            href: a.href,
+            x: r.left - inputRect.left,
+            y: r.top - inputRect.top,
+            w: r.width,
+            h: r.height,
+          };
+        });
+
+        const captureScale = 2;
         const canvas = await html2canvas(input, {
-          scale: 2, // Capture at 2x resolution
+          scale: captureScale,
           useCORS: true,
           logging: false,
-          width: input.offsetWidth,
-          height: input.offsetHeight,
+          width: input.scrollWidth,
+          height: input.scrollHeight,
           windowWidth: input.scrollWidth,
-          windowHeight: input.scrollHeight
+          windowHeight: input.scrollHeight,
+          backgroundColor: '#ffffff',
         });
 
-        // Restore original scale
         input.style.transform = originalTransform;
-        
-        const imgData = canvas.toDataURL('image/png');
-        
-        // A4 dimensions in mm are 210 x 297
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-        });
-        
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const canvasAspectRatio = canvas.width / canvas.height;
-        
-        let imgWidth = pdfWidth;
-        let imgHeight = pdfWidth / canvasAspectRatio;
 
-        if (imgHeight > pdfHeight) {
-            imgHeight = pdfHeight;
-            imgWidth = imgHeight * canvasAspectRatio;
+        // Create multipage PDF at A4 with margins; no forced single-page shrink
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10; // mm
+        const renderWidthMM = pageWidth - margin * 2;
+        const mmPerCanvasPx = renderWidthMM / canvas.width; // mm per pixel of the rendered canvas
+        const mmPerCssPx = mmPerCanvasPx * captureScale;    // mm per CSS pixel in DOM coords
+        const sliceHeightPx = Math.floor((pageHeight - margin * 2) / mmPerCanvasPx);
+
+        let yOffsetPx = 0;
+        let isFirstPage = true;
+        while (yOffsetPx < canvas.height) {
+          if (!isFirstPage) pdf.addPage();
+          isFirstPage = false;
+
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = Math.min(sliceHeightPx, canvas.height - yOffsetPx);
+          const ctx = pageCanvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(
+              canvas,
+              0, yOffsetPx, canvas.width, pageCanvas.height,
+              0, 0, canvas.width, pageCanvas.height
+            );
+          }
+
+          const imgData = pageCanvas.toDataURL('image/png');
+          const renderHeightMM = pageCanvas.height * mmPerCanvasPx;
+          pdf.addImage(imgData, 'PNG', margin, margin, renderWidthMM, renderHeightMM);
+
+          // Add clickable link annotations mapped from DOM positions
+          for (const lr of linkRects) {
+            const top = lr.y;
+            const bottom = lr.y + lr.h;
+            const sliceTop = yOffsetPx;
+            const sliceBottom = yOffsetPx + pageCanvas.height;
+            // Skip links that don't intersect this slice
+            if (bottom <= sliceTop || top >= sliceBottom) continue;
+
+            const xMM = margin + lr.x * mmPerCssPx;
+            const yMM = margin + (lr.y - yOffsetPx) * mmPerCssPx;
+            const wMM = lr.w * mmPerCssPx;
+            const hMM = lr.h * mmPerCssPx;
+            try {
+              // @ts-ignore typings may vary
+              if (typeof (pdf as any).link === 'function') {
+                (pdf as any).link(xMM, yMM, wMM, hMM, { url: lr.href });
+              } else if ((pdf as any).textWithLink) {
+                // Fallback: invisible space with link if link() not present
+                (pdf as any).setTextColor(255, 255, 255);
+                (pdf as any).textWithLink(' ', xMM, yMM + hMM / 2, { url: lr.href });
+                (pdf as any).setTextColor(0, 0, 0);
+              }
+            } catch { /* ignore link annotation failures */ }
+          }
+
+          yOffsetPx += pageCanvas.height;
         }
-
-        const x = (pdfWidth - imgWidth) / 2;
-        const y = 0; // Align to top
-
-        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
         pdf.save('resume.pdf');
     } catch (error) {
         console.error("Failed to export PDF", error);
@@ -460,9 +587,20 @@ function ReportContent() {
 
     try {
         const { default: jsPDF } = await import('jspdf');
-        const pdf = new jsPDF();
-        const textLines = pdf.splitTextToSize(fullReport.coverLetter, 180);
-        pdf.text(textLines, 15, 20);
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 20; // mm
+        const contentWidth = pageWidth - margin * 2;
+
+        pdf.setFont('times', 'normal');
+        pdf.setFontSize(11);
+        // Slightly tighter than default for better density
+        // @ts-ignore: jsPDF typings may not include setLineHeightFactor
+        if (pdf.setLineHeightFactor) pdf.setLineHeightFactor(1.3);
+
+        const textLines = pdf.splitTextToSize(fullReport.coverLetter, contentWidth);
+        pdf.text(textLines, margin, margin);
         pdf.save('cover-letter.pdf');
     } catch (e: any) {
         toast({
@@ -470,6 +608,18 @@ function ReportContent() {
             description: e.message || 'Could not download cover letter.',
             variant: 'destructive'
         });
+    }
+  };
+
+  const handleDownloadCoverLetterDocx = async () => {
+    if (!fullReport?.coverLetter) return;
+    try {
+      const { saveAs } = await import('file-saver');
+      const { generateCoverLetterDocx } = await import('@/lib/docx-cover-letter');
+      const blob = await generateCoverLetterDocx(fullReport.coverLetter);
+      saveAs(blob, 'cover-letter.docx');
+    } catch (e: any) {
+      toast({ title: 'Download Failed', description: e.message || 'Could not download cover letter.', variant: 'destructive' });
     }
   };
 
@@ -535,7 +685,7 @@ function ReportContent() {
           <Card>
             <CardContent className="flex justify-center items-center flex-col text-center min-h-[400px] border-dashed border-2 rounded-lg p-10">
               <p className="text-muted-foreground">
-                Could not generate a report. Please try again.
+                {errorMessage ?? 'Could not generate a report. Please try again.'}
               </p>
             </CardContent>
           </Card>
@@ -555,7 +705,7 @@ function ReportContent() {
       </TabsList>
       
        <TabsContent value="analysis" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8">
             <Card>
                 <CardHeader>
                     <CardTitle>Initial ATS Analysis</CardTitle>
@@ -563,8 +713,8 @@ function ReportContent() {
                     This is how your original resume scored against the job description before tailoring.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                    <div className="flex flex-col items-center justify-center p-4 bg-secondary rounded-lg">
+                <CardContent className="grid grid-cols-1 gap-8 items-start">
+                    <div className="flex flex-col items-center justify-center p-6 bg-secondary rounded-lg">
                         <div className="text-7xl font-bold text-primary font-headline">
                             {fullReport.initialAtsScore}
                         </div>
@@ -575,15 +725,27 @@ function ReportContent() {
                        {renderApplyRecommendation(fullReport.initialAtsScore)}
                     </div>
                 </CardContent>
-            </Card>
-            <AtsExplanation />
-          </div>
+            </Card></div>
       </TabsContent>
 
        <TabsContent value="resume" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="flex flex-col gap-6 items-stretch">
+              <div className="hidden">
+                <div className="inline-flex items-center gap-1 rounded-md border bg-background p-1">
+                  <Button size="sm" variant={editSection === 'basics' ? 'default' : 'ghost'} onClick={() => setEditSection('basics')}>Basics</Button>
+                  <Button size="sm" variant={editSection === 'education' ? 'default' : 'ghost'} onClick={() => setEditSection('education')}>Education</Button>
+                  <Button size="sm" variant={editSection === 'experience' ? 'default' : 'ghost'} onClick={() => setEditSection('experience')}>Experience</Button>
+                  <Button size="sm" variant={editSection === 'skills' ? 'default' : 'ghost'} onClick={() => setEditSection('skills')}>Skills</Button>
+                  <Button size="sm" variant={editSection === 'custom' ? 'default' : 'ghost'} onClick={() => setEditSection('custom')}>Custom</Button>
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-md border bg-background p-1">
+                  <Button size="sm" variant={resumeView === 'edit' ? 'default' : 'ghost'} onClick={() => setResumeView('edit')}>Edit</Button>
+                  <Button size="sm" variant={resumeView === 'split' ? 'default' : 'ghost'} onClick={() => setResumeView('split')}>Split</Button>
+                  <Button size="sm" variant={resumeView === 'preview' ? 'default' : 'ghost'} onClick={() => setResumeView('preview')}>Preview</Button>
+                </div>
+              </div>
               {/* Left Column: Editor */}
-              <div className="flex flex-col gap-6 h-full">
+              <div className="hidden">
                 <Card className="flex-shrink-0">
                   <CardHeader>
                     <div className="flex justify-between items-start">
@@ -603,17 +765,20 @@ function ReportContent() {
                         <div className="text-xs text-muted-foreground">New ATS Score</div>
                       </div>
                     </div>
-                  </CardHeader>
+                </CardHeader>
                 </Card>
-                <ResumeEditor resumeData={resumeData} setResumeData={setResumeData} />
+                <Card>
+                  <CardContent className="p-4">
+                    <ResumeEditor section={editSection} resumeData={resumeData} setResumeData={setResumeData} />
+                  </CardContent>
+                </Card>
               </div>
 
-              {/* Right Column: Preview */}
-              <div className="sticky top-24">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                       <CardTitle className="font-headline text-xl whitespace-nowrap">Live Preview</CardTitle>
+              {/* Preview Full Width */}
+              <Card className="hidden">
+                <CardHeader>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <CardTitle className="font-headline text-xl whitespace-nowrap">Live Preview</CardTitle>
                         <div className="flex items-center gap-2">
                            <Label htmlFor="region" className="text-xs">Region</Label>
                             <Select value={region} onValueChange={setRegion}>
@@ -640,10 +805,10 @@ function ReportContent() {
                         </div>
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button className="ml-auto" size="sm" disabled={isExporting}>
-                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                                {isExporting ? 'Exporting...' : 'Export'} 
-                                </Button>
+                               <Button className="ml-auto" size="sm" disabled={isExporting}>
+                               {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                               {isExporting ? 'Exporting...' : 'Export'} 
+                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
                                 <DropdownMenuItem onClick={handleExportPDF} disabled={isExporting}>Download as PDF</DropdownMenuItem>
@@ -681,21 +846,95 @@ function ReportContent() {
                             </CardContent>
                         </Card>
                     )}
-                  </CardHeader>
-                  <CardContent className="bg-secondary p-4 flex justify-center items-start overflow-auto h-[calc(100vh-18rem)]">
-                    <div
-                      ref={resumePreviewRef}
-                      className="w-[8.5in] min-h-[11in] bg-white shadow-lg origin-top"
-                      style={{
-                        transform: `scale(0.55)`,
-                        transformOrigin: 'top center',
-                      }}
-                    >
-                      {renderTemplate()}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+               </CardHeader>
+                <CardContent className="bg-secondary p-0 flex justify-center items-center overflow-hidden h-[85vh]" ref={previewContainerRef}>
+                   <div
+                     ref={resumePreviewRef}
+                     className="w-[8.5in] min-h-[11in] bg-white shadow-lg origin-top"
+                     style={{
+                       transform: `scale(${previewScale})`,
+                       transformOrigin: 'center center',
+                     }}
+                   >
+                     {renderTemplate()}
+                   </div>
+                 </CardContent>
+              </Card>
+
+                <div ref={splitContainerRef} className="flex flex-col lg:flex-row gap-6 items-start w-full">
+                  <Card className="h-[110vh]" style={{ width: isLg ? `${editorWidthPct}%` : '100%' }}>
+                    <CardHeader>
+                      <CardTitle className="font-headline text-xl">Edit</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 h-[calc(110vh-5rem)] overflow-auto">
+                      <ResumeEditor noScroll resumeData={resumeData} setResumeData={setResumeData} />
+                    </CardContent>
+                  </Card>
+                  {/* Drag handle (visible on lg+) */}
+                  <div
+                    className="hidden lg:flex w-1 cursor-col-resize bg-border hover:bg-primary/60 transition-colors self-stretch"
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="Resize editor and preview"
+                    onMouseDown={() => setIsDraggingSplit(true)}
+                    onTouchStart={() => setIsDraggingSplit(true)}
+                  />
+                  <Card className="h-[110vh]" style={{ width: isLg ? `${100 - editorWidthPct}%` : '100%' }}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <CardTitle className="font-headline text-xl whitespace-nowrap">Preview</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="region" className="text-xs">Region</Label>
+                          <Select value={region} onValueChange={setRegion}>
+                            <SelectTrigger id="region" className="w-[150px] h-8">
+                              <SelectValue placeholder="Region" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="north-american">North American</SelectItem>
+                              <SelectItem value="european">European</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Label htmlFor="template" className="text-xs">Template</Label>
+                          <Select value={template} onValueChange={setTemplate}>
+                            <SelectTrigger id="template" className="w-[120px] h-8">
+                              <SelectValue placeholder="Template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="classic">Classic</SelectItem>
+                              <SelectItem value="modern">Modern</SelectItem>
+                              <SelectItem value="creative">Creative</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button className="ml-auto" size="sm" disabled={isExporting}>
+                              {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                              {isExporting ? 'Exporting...' : 'Export'}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={handleExportPDF} disabled={isExporting}>Download as PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportDOCX} disabled={isExporting}>Download as Word (.docx)</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="bg-secondary p-0 h-[calc(110vh-5rem)]" ref={previewContainerRef}>
+                      <ScrollArea className="h-full pr-0">
+                        <div className="flex justify-center items-center h-full">
+                          <div
+                            ref={resumePreviewRef}
+                            className="w-[8.5in] min-h-[11in] bg-white shadow-lg origin-top"
+                            style={{ transform: `scale(${previewScale})`, transformOrigin: 'center center' }}
+                          >
+                            {renderTemplate()}
+                          </div>
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
             </div>
           </TabsContent>
       <TabsContent value="cover-letter" className="mt-4">
@@ -711,10 +950,16 @@ function ReportContent() {
                             onChange={(e) => setFullReport({...fullReport, coverLetter: e.target.value})}
                             className="min-h-[400px] text-sm font-mono"
                             />
-                            <Button onClick={handleDownloadCoverLetter} disabled={!fullReport.coverLetter}>
+                            <div className="flex gap-2">
+                              <Button onClick={handleDownloadCoverLetter} disabled={!fullReport.coverLetter}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download Cover Letter
-                            </Button>
+                              </Button>
+                              <Button variant="secondary" onClick={handleDownloadCoverLetterDocx} disabled={!fullReport.coverLetter}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download as DOCX
+                              </Button>
+                            </div>
                         </>
                     )}
                 </CardContent>
@@ -731,7 +976,7 @@ function ReportContent() {
                         <CardContent>
                             {fullReport.integratedKeywords && fullReport.integratedKeywords.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
-                                {fullReport.integratedKeywords.map((skill, index) => (
+                                {fullReport.integratedKeywords.map((skill: string, index: number) => (
                                     <Badge key={index} variant="secondary">{skill}</Badge>
                                 ))}
                                 </div>
@@ -748,7 +993,7 @@ function ReportContent() {
                         <CardContent>
                             {fullReport.missingKeywords && fullReport.missingKeywords.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
-                                {fullReport.missingKeywords.map((skill, index) => (
+                                {fullReport.missingKeywords.map((skill: string, index: number) => (
                                     <Badge key={index} variant="destructive">{skill}</Badge>
                                 ))}
                                 </div>
@@ -765,7 +1010,7 @@ function ReportContent() {
                             <p className="mb-4 text-muted-foreground">Consider these courses or certifications to fill skill gaps and strengthen your profile.</p>
                             {fullReport.suggestedCertifications && fullReport.suggestedCertifications.length > 0 ? (
                                 <ul className="space-y-3">
-                                {fullReport.suggestedCertifications.map((cert, index) => (
+                                {fullReport.suggestedCertifications.map((cert: {name: string; url: string}, index: number) => (
                                     <li key={index} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted">
                                     <Award className="h-5 w-5 text-amber-500 mt-0.5 shrink-0"/>
                                     <a href={cert.url} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline flex items-center gap-1.5">
@@ -793,12 +1038,12 @@ function ReportContent() {
                            <ScrollArea className="h-[500px] pr-4">
                             {fullReport.interviewQA && fullReport.interviewQA.length > 0 ? (
                                 <div className="space-y-4">
-                                {fullReport.interviewQA.map((qa, index) => (
+                            {fullReport.interviewQA.map((qa: {question: string; answer: string}, index: number) => (
                                 <div key={index} className="p-4 border rounded-lg bg-secondary/50">
                                     <h4 className="font-semibold mb-2">{qa.question}</h4>
                                     <p className="text-sm text-muted-foreground font-mono">{qa.answer}</p>
                                 </div>
-                                ))}
+                            ))}
                                 </div>
                             ) : (
                                 <div className="text-sm text-muted-foreground">No interview questions were generated.</div>
@@ -828,10 +1073,10 @@ function ReportContent() {
                         <CardDescription>Based on your resume, here are some career paths that could be a great fit.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                       {careerPathData.careerSuggestions.map((path, index) => (
+                       {careerPathData.careerSuggestions.map((path: {pathTitle: string; pathDescription: string}, index: number) => (
                            <div key={index} className="p-4 border rounded-lg">
-                                <h4 className="font-semibold">{path.pathTitle}</h4>
-                                <p className="text-sm text-muted-foreground">{path.pathDescription}</p>
+                               <h4 className="font-semibold">{path.pathTitle}</h4>
+                               <p className="text-sm text-muted-foreground">{path.pathDescription}</p>
                            </div>
                        ))}
                     </CardContent>
@@ -842,7 +1087,7 @@ function ReportContent() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap gap-2">
-                            {careerPathData.possibleJobPositions.map((pos, index) => (
+                            {careerPathData.possibleJobPositions.map((pos: string, index: number) => (
                                 <Badge key={index} variant="secondary">{pos}</Badge>
                             ))}
                         </div>
@@ -854,7 +1099,7 @@ function ReportContent() {
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-3">
-                        {careerPathData.suggestedCertifications.map((cert, index) => (
+                        {careerPathData.suggestedCertifications.map((cert: {name: string; url: string}, index: number) => (
                             <li key={index} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted">
                             <Award className="h-5 w-5 text-amber-500 mt-0.5 shrink-0"/>
                             <a href={cert.url} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline flex items-center gap-1.5">
@@ -884,10 +1129,10 @@ export default function ReportPage() {
                 <section className="container mx-auto px-4 pt-12 pb-4">
                     <div className="mx-auto max-w-3xl text-center">
                         <h2 className="font-headline text-3xl font-bold tracking-tight text-primary sm:text-4xl md:text-5xl">
-                        Your Optimized Application Kit
+                        Tailored Resume
                         </h2>
                         <p className="mt-4 text-lg text-muted-foreground">
-                        Review your analysis, edit your resume, and download your materials.
+                        Edit, preview, and download your resume and related materials.
                         </p>
                     </div>
                 </section>
@@ -900,3 +1145,4 @@ export default function ReportPage() {
         </div>
     )
 }
+

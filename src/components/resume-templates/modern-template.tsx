@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { FormData } from '@/app/build/page';
+import type { FormData } from '@/types/resume';
 import { Mail, Phone, MapPin, Briefcase, GraduationCap, Star, Link as LinkIcon, FolderKanban, Award, Languages } from 'lucide-react';
 
 interface ModernTemplateProps {

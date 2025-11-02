@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { AntiCopy } from '@/components/layout/anti-copy';
 
 const fontBody = Inter({
   subsets: ['latin'],
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn("font-body antialiased", fontBody.variable, fontHeadline.variable)}>
+        <AntiCopy />
         {children}
         <Toaster />
       </body>

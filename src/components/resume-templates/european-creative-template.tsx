@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { FormData } from '@/app/build/page';
+import type { FormData } from '@/types/resume';
 import { Mail, Phone, MapPin, Link as LinkIcon } from 'lucide-react';
 import Image from 'next/image';
 

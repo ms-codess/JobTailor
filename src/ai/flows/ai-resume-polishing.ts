@@ -46,11 +46,17 @@ const aiResumePolishingPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.5-flash',
   input: {schema: AiResumePolishingInputSchema},
   output: {schema: AiResumePolishingOutputSchema},
-  prompt: `You are an AI resume polishing expert. You will be given a section of a resume and its current content. Your goal is to enhance the language and content of the resume section by:
+  prompt: `You are an AI resume polishing expert. You will be given a section of a resume and its current content. Your goal is to enhance the language and content of the resume section while strictly avoiding hallucinations. Follow these rules and steps:
 
-1.  Rewriting the content to be more impactful and clear.
-2.  Suggesting stronger verbs to use.
-3.  Suggesting metrics to quantify achievements.
+Rules (No Inventions):
+ - Do NOT invent facts, employers, roles, dates, tools, or certifications that are not present in the provided content.
+ - Do NOT add specific numbers/metrics that are not explicitly stated. You may suggest metrics separately, but do not insert speculative numbers into the polished content.
+ - Keep all factual claims grounded in the original text; you may improve wording and clarity only.
+
+Steps:
+1.  Rewrite the content to be more impactful and clear while preserving facts.
+2.  Suggest stronger verbs to use.
+3.  Suggest metrics to quantify achievements (as ideas only, without adding them to the polished content unless they already exist in the original).
 
 Section: {{{resumeSection}}}
 Current Content: {{{currentContent}}}

@@ -9,7 +9,6 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateHash } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { AtsExplanation } from '@/components/job-tailor/ats-explanation';
 
 const ResumeInputForm = dynamic(() => import('@/components/job-tailor/resume-input-form').then(mod => mod.ResumeInputForm), {
   ssr: false,
@@ -88,7 +87,6 @@ export default function TailorPage() {
               onSubmit={handleGenerateFull}
               loading={loading}
             />
-            <AtsExplanation />
           </div>
         </section>
       </main>

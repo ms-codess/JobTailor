@@ -12,8 +12,18 @@ import {
 } from '@/components/ui/card';
 import { ArrowRight, FilePlus, Search } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+
+  // Proactively prefetch the Tailor path to reduce click latency
+  useEffect(() => {
+    // Prefetch Path 1 (/tailor) so it opens faster on click
+    router.prefetch('/tailor');
+  }, [router]);
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/20">
       <Header />
@@ -49,7 +59,7 @@ export default function Home() {
                 <CardDescription className="flex-grow text-muted-foreground">
                   Upload your resume and a job description to get a tailored version, an ATS score, and a full application kit.
                 </CardDescription>
-                <Link href="/tailor" passHref>
+                <Link href="/tailor" prefetch passHref onMouseEnter={() => router.prefetch('/tailor')}>
                   <Button
                     className="mt-6 w-full"
                   >
