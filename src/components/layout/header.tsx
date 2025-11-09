@@ -14,7 +14,7 @@ export function Header() {
         <div className="mr-auto select-none">
           <Link href="/" className="flex items-center gap-2">
             <Home className="h-5 w-5 text-purple-600 drop-shadow-sm" />
-            <span className="font-headline text-lg font-semibold bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-500 bg-clip-text text-transparent">JobTailor</span>
+            <span className="font-headline text-lg font-semibold text-black">JobTailor</span>
           </Link>
         </div>
         <nav className="flex flex-1 items-center justify-end gap-2">
@@ -27,7 +27,6 @@ export function Header() {
     </header>
   );
 }
-
 
 
 
