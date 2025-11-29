@@ -28,11 +28,6 @@ export async function processPdf(file: File): Promise<string> {
 
   // Fallback to AI OCR if standard extraction fails
   if (fullText.trim().length < 100) {
-    toast({
-      title: 'Image-based PDF Detected',
-      description: 'Falling back to AI-powered OCR. This may take a moment...',
-    });
-
     let ocrText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
