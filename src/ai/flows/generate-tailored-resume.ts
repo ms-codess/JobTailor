@@ -114,9 +114,20 @@ const generateTailoredResumeFlow = ai.defineFlow(
       throw new Error('AI returned incomplete output for resume generation.');
     }
     try {
-      const parsedResume = GenerateStructuredResumeOutputSchema.parse(
-        JSON.parse(output.tailoredResumeJson)
-      );
+      const raw = (() => {
+        try {
+          return JSON.parse(output.tailoredResumeJson);
+        } catch {
+          return {};
+        }
+      })();
+      const repaired = repairTailoredResume(raw);
+      const parsed = GenerateStructuredResumeOutputSchema.safeParse(repaired);
+      if (!parsed.success) {
+        console.error('Tailored resume failed validation after repair', parsed.error);
+        throw new Error('AI returned an invalid tailored resume JSON structure.');
+      }
+      const parsedResume = parsed.data;
       return {
         initialAtsScore: output.initialAtsScore,
         tailoredAtsScore: output.tailoredAtsScore,
@@ -129,6 +140,61 @@ const generateTailoredResumeFlow = ai.defineFlow(
     }
   }
 );
+
+function repairTailoredResume(raw: any) {
+  const asString = (value: any, fallback = '') =>
+    typeof value === 'string' ? value : fallback;
+  const asArray = (value: any) => (Array.isArray(value) ? value : []);
+
+  const basics = raw?.basics ?? {};
+  const links = asArray(basics.links).map((l: any, idx: number) => ({
+    label: asString(l?.label, `Link ${idx + 1}`),
+    url: asString(l?.url ?? l?.href ?? '', ''),
+  }));
+
+  const normalizeExperience = asArray(raw?.experience).map((exp: any) => ({
+    company: asString(exp?.company),
+    role: asString(exp?.role),
+    years: asString(exp?.years),
+    description: asString(exp?.description, '')
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter(Boolean)
+      .map(line => (line.startsWith('-') ? line : `- ${line}`))
+      .join('\n'),
+  }));
+
+  const normalizeEducation = asArray(raw?.education).map((edu: any) => ({
+    school: asString(edu?.school),
+    degree: asString(edu?.degree),
+    year: asString(edu?.year),
+  }));
+
+  const normalizeCustomSections = asArray(raw?.customSections).map((section: any) => ({
+    title: asString(section?.title),
+    content: asString(section?.content),
+  }));
+
+  const ensureHasBasics = (key: keyof typeof basics) => asString((basics as any)[key]);
+
+  return {
+    basics: {
+      name: ensureHasBasics('name'),
+      email: ensureHasBasics('email'),
+      phone: ensureHasBasics('phone'),
+      location: ensureHasBasics('location'),
+      summary: ensureHasBasics('summary'),
+      photo: basics.photo ? asString(basics.photo) : undefined,
+      links,
+    },
+    education: normalizeEducation,
+    experience: normalizeExperience,
+    skills: asArray(raw?.skills).map((s: any) => asString(s)).filter(Boolean),
+    certifications: asArray(raw?.certifications).map((c: any) => asString(c)).filter(Boolean),
+    languages: asArray(raw?.languages).map((l: any) => asString(l)).filter(Boolean),
+    customSections: normalizeCustomSections,
+  };
+}
 
 // Prompt for Cover Letter
 const coverLetterPrompt = ai.definePrompt({

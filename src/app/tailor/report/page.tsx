@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useRef, useEffect, Suspense, ChangeEvent } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
-import { Loader2, Download, ChevronDown, Upload, User as UserIcon, Link as LinkIcon, Trash2, Wand2, Edit, FileText, CheckSquare, Award, MessageSquareQuote, Info, AlertTriangle, Brain, ThumbsUp, ThumbsDown, Briefcase } from 'lucide-react';
+import { Loader2, Download, ChevronDown, Link as LinkIcon, Trash2, Wand2, Edit, FileText, CheckSquare, Award, MessageSquareQuote, Info, AlertTriangle, Brain, ThumbsUp, ThumbsDown, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -37,8 +37,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
 import type { FormData as ResumeFormData } from '@/types/resume';
 import {
   Dialog,
@@ -97,11 +95,6 @@ const TemplateLoader = () => (
 const ClassicTemplate = dynamic(() => import('@/components/resume-templates/classic-template').then(mod => mod.ClassicTemplate), { loading: () => <TemplateLoader /> });
 const ModernTemplate = dynamic(() => import('@/components/resume-templates/modern-template').then(mod => mod.ModernTemplate), { loading: () => <TemplateLoader /> });
 const CreativeTemplate = dynamic(() => import('@/components/resume-templates/creative-template').then(mod => mod.CreativeTemplate), { loading: () => <TemplateLoader /> });
-const EuropeanClassicTemplate = dynamic(() => import('@/components/resume-templates/european-classic-template').then(mod => mod.EuropeanClassicTemplate), { loading: () => <TemplateLoader /> });
-const EuropeanModernTemplate = dynamic(() => import('@/components/resume-templates/european-modern-template').then(mod => mod.EuropeanModernTemplate), { loading: () => <TemplateLoader /> });
-const EuropeanCreativeTemplate = dynamic(() => import('@/components/resume-templates/european-creative-template').then(mod => mod.EuropeanCreativeTemplate), { loading: () => <TemplateLoader /> });
-
-
 export type PolishContext = {
   section: string;
   content: string;
@@ -121,7 +114,6 @@ function ReportContent() {
   const [fullReport, setFullReport] = useState<FullReportData | null>(null);
   const [template, setTemplate] = useState('classic');
   const resumePreviewRef = useRef<HTMLDivElement>(null);
-  const [region, setRegion] = useState('north-american');
   const [resumeData, setResumeData] = useState<ResumeFormData | null>(null);
   const [randomFact, setRandomFact] = useState('');
   const [activeTab, setActiveTab] = useState('resume');
@@ -316,17 +308,6 @@ function ReportContent() {
     setActiveTab(tab);
   };
 
-  const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && resumeData) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setResumeData({ ...resumeData, basics: { ...resumeData.basics, photo: reader.result as string }});
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   // Auto-fit preview within its container (minimize unused space)
   useEffect(() => {
     if (!previewContainerRef.current) return;
@@ -419,21 +400,6 @@ function ReportContent() {
 
   const renderTemplate = () => {
     if (!resumeData) return null;
-
-    const regionHasPhoto = ['european', 'middle-east-asia-africa'].includes(region);
-    
-    if (regionHasPhoto) {
-      switch (template) {
-        case 'classic':
-          return <EuropeanClassicTemplate data={resumeData} />;
-        case 'modern':
-          return <EuropeanModernTemplate data={resumeData} />;
-        case 'creative':
-          return <EuropeanCreativeTemplate data={resumeData} />;
-        default:
-          return <EuropeanClassicTemplate data={resumeData} />;
-      }
-    }
 
     switch (template) {
         case 'classic':
@@ -725,7 +691,7 @@ function ReportContent() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-8 items-start">
-                    <div className="flex flex-col items-center justify-center p-6 bg-secondary rounded-lg">
+                    <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-primary/10 via-white to-primary/5 rounded-lg">
                         <div className="text-7xl font-bold text-primary font-headline">
                             {fullReport.initialAtsScore}
                         </div>
@@ -769,7 +735,7 @@ function ReportContent() {
                           Edit your new resume below. The preview will update live.
                         </CardDescription>
                       </div>
-                      <div className="text-center p-4 bg-secondary rounded-lg shrink-0">
+                      <div className="text-center p-4 bg-gradient-to-br from-primary/10 via-white to-primary/5 rounded-lg shrink-0">
                         <div className="text-4xl font-bold text-primary font-headline">
                           {fullReport.tailoredAtsScore}
                         </div>
@@ -789,19 +755,8 @@ function ReportContent() {
               <Card className="hidden">
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-3">
-                    <CardTitle className="font-headline text-xl text-foreground whitespace-nowrap">Live Preview</CardTitle>
+            <CardTitle className="font-headline text-xl text-foreground whitespace-nowrap">Live Preview</CardTitle>
                         <div className="flex items-center gap-2">
-                           <Label htmlFor="region" className="text-xs">Region</Label>
-                            <Select value={region} onValueChange={setRegion}>
-                            <SelectTrigger id="region" className="w-[150px] h-8">
-                                <SelectValue placeholder="Region" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="north-american">North American</SelectItem>
-                                <SelectItem value="european">European</SelectItem>
-                            </SelectContent>
-                            </Select>
-
                             <Label htmlFor="template" className="text-xs">Template</Label>
                             <Select value={template} onValueChange={setTemplate}>
                             <SelectTrigger id="template" className="w-[120px] h-8">
@@ -827,38 +782,8 @@ function ReportContent() {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                    {/* Photo uploader for european templates */}
-                     {['european'].includes(region) && (
-                        <Card className="mt-4 border-dashed border-accent">
-                            <CardHeader>
-                                <CardTitle className="text-lg">Photo Recommended</CardTitle>
-                                <CardDescription>Upload a professional headshot for this regional format.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center gap-4">
-                                     <Avatar className="h-24 w-24">
-                                        <AvatarImage src={resumeData?.basics?.photo} />
-                                        <AvatarFallback><UserIcon className="h-12 w-12 text-muted-foreground" /></AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex flex-col gap-2">
-                                        <Input
-                                            id="photo-upload"
-                                            type="file"
-                                            className="hidden"
-                                            accept="image/png, image/jpeg"
-                                            onChange={handlePhotoUpload}
-                                        />
-                                        <Button type="button" variant="outline" onClick={() => document.getElementById('photo-upload')?.click()}>
-                                            <Upload className="mr-2 h-4 w-4" /> Upload Photo
-                                        </Button>
-                                        <p className="text-xs text-muted-foreground">PNG or JPG recommended.</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-               </CardHeader>
-                <CardContent className="bg-secondary p-0 flex justify-center items-center overflow-hidden h-[85vh]" ref={previewContainerRef}>
+                </CardHeader>
+                <CardContent className="bg-gradient-to-b from-white via-primary/5 to-white p-0 flex justify-center items-center overflow-hidden h-[85vh]" ref={previewContainerRef}>
                    <div
                      ref={resumePreviewRef}
                      className="w-[8.5in] min-h-[11in] bg-white shadow-lg origin-top"
@@ -895,16 +820,6 @@ function ReportContent() {
                       <div className="flex items-center justify-between flex-wrap gap-3">
                       <CardTitle className="font-headline text-xl text-foreground whitespace-nowrap">Preview</CardTitle>
                         <div className="flex items-center gap-2">
-                          <Label htmlFor="region" className="text-xs">Region</Label>
-                          <Select value={region} onValueChange={setRegion}>
-                            <SelectTrigger id="region" className="w-[150px] h-8">
-                              <SelectValue placeholder="Region" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="north-american">North American</SelectItem>
-                              <SelectItem value="european">European</SelectItem>
-                            </SelectContent>
-                          </Select>
                           <Label htmlFor="template" className="text-xs">Template</Label>
                           <Select value={template} onValueChange={setTemplate}>
                             <SelectTrigger id="template" className="w-[120px] h-8">
@@ -931,7 +846,7 @@ function ReportContent() {
                         </DropdownMenu>
                       </div>
                     </CardHeader>
-                    <CardContent className="bg-secondary p-0 h-[calc(110vh-5rem)]" ref={previewContainerRef}>
+                    <CardContent className="bg-gradient-to-b from-white via-primary/5 to-white p-0 h-[calc(110vh-5rem)]" ref={previewContainerRef}>
                       <ScrollArea className="h-full pr-0">
                         <div className="flex justify-center items-center h-full">
                           <div
@@ -1027,7 +942,7 @@ function ReportContent() {
                             {fullReport.interviewQA && fullReport.interviewQA.length > 0 ? (
                                 <div className="space-y-4">
                             {fullReport.interviewQA.map((qa: {question: string; answer: string}, index: number) => (
-                                <div key={index} className="p-4 border rounded-lg bg-secondary/50">
+                                <div key={index} className="p-4 border rounded-lg bg-primary/5">
                                     <h4 className="font-semibold mb-2">{qa.question}</h4>
                                     <p className="text-sm text-muted-foreground font-mono">{qa.answer}</p>
                                 </div>

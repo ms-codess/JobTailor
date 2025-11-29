@@ -12,7 +12,7 @@ export const GenerateStructuredResumeOutputSchema = z.object({
     photo: z.string().optional().describe("The user's photo as a data URI, if provided."),
     links: z.array(z.object({
       label: z.string().describe("The label for the link (e.g., 'LinkedIn', 'GitHub', 'Portfolio')."),
-      url: z.string().url().describe("The URL for the link."),
+      url: z.string().describe("The URL for the link (e.g., https://linkedin.com/in/username)."),
     })).describe("An array of the user's social/professional links."),
   }),
   education: z.array(z.object({

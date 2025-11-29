@@ -16,7 +16,8 @@ export function AntiCopy() {
     const onContextMenu = (e: MouseEvent) => { if (!isAllowedTarget(e.target)) e.preventDefault(); };
     const onDragStart = (e: DragEvent) => { if (!isAllowedTarget(e.target)) e.preventDefault(); };
     const onKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
+      // Guard against undefined keys (rare in some synthetic events)
+      const key = (e.key || '').toLowerCase();
       const ctrlOrMeta = e.ctrlKey || e.metaKey;
       if (ctrlOrMeta && ["c", "x", "a", "s", "u", "p"].includes(key)) {
         if (!isAllowedTarget(e.target)) e.preventDefault();
@@ -40,4 +41,3 @@ export function AntiCopy() {
   }, []);
   return null;
 }
-

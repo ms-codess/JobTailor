@@ -67,7 +67,16 @@ export default function TailorPage() {
 
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
+    <div className="relative flex min-h-screen w-full flex-col overflow-hidden">
+      {/* Ambient background image with gradient overlay */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <img
+          src="/images/header-mesh.svg"
+          alt=""
+          className="h-full w-full object-cover opacity-60"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/90 to-purple-50/80 dark:from-slate-900/80 dark:via-slate-900/85 dark:to-slate-900/90" />
+      </div>
       <Header />
       <main className="flex-1">
         <section className="container mx-auto px-4 py-12 md:py-20">
@@ -95,7 +104,6 @@ export default function TailorPage() {
 }
 
     
-
 
 
 
