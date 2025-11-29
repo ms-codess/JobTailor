@@ -125,7 +125,13 @@ const generateTailoredResumeFlow = ai.defineFlow(
       const parsed = GenerateStructuredResumeOutputSchema.safeParse(repaired);
       if (!parsed.success) {
         console.error('Tailored resume failed validation after repair', parsed.error);
-        throw new Error('AI returned an invalid tailored resume JSON structure.');
+        const fallback = getEmptyResume(repaired);
+        return {
+          initialAtsScore: output.initialAtsScore ?? 0,
+          tailoredAtsScore: output.tailoredAtsScore ?? 0,
+          atsScoreBreakdown: output.atsScoreBreakdown,
+          tailoredResume: fallback,
+        };
       }
       const parsedResume = parsed.data;
       return {
@@ -136,7 +142,16 @@ const generateTailoredResumeFlow = ai.defineFlow(
       };
     } catch (err) {
       console.error('Failed to parse tailored resume JSON from AI.', err);
-      throw new Error('AI returned an invalid tailored resume JSON structure.');
+      return {
+        initialAtsScore: output?.initialAtsScore ?? 0,
+        tailoredAtsScore: output?.tailoredAtsScore ?? 0,
+        atsScoreBreakdown: output?.atsScoreBreakdown ?? {
+          roleMatch: {score: 0, analysis: ''},
+          experienceMatch: {score: 0, analysis: ''},
+          skillsMatch: {score: 0, analysis: ''},
+        },
+        tailoredResume: getEmptyResume({}),
+      };
     }
   }
 );
@@ -193,6 +208,26 @@ function repairTailoredResume(raw: any) {
     certifications: asArray(raw?.certifications).map((c: any) => asString(c)).filter(Boolean),
     languages: asArray(raw?.languages).map((l: any) => asString(l)).filter(Boolean),
     customSections: normalizeCustomSections,
+  };
+}
+
+function getEmptyResume(seed: Partial<ReturnType<typeof repairTailoredResume>>) {
+  return {
+    basics: {
+      name: seed.basics?.name || '',
+      email: seed.basics?.email || '',
+      phone: seed.basics?.phone || '',
+      location: seed.basics?.location || '',
+      summary: seed.basics?.summary || '',
+      photo: seed.basics?.photo,
+      links: seed.basics?.links || [],
+    },
+    education: seed.education || [],
+    experience: seed.experience || [],
+    skills: seed.skills || [],
+    certifications: seed.certifications || [],
+    languages: seed.languages || [],
+    customSections: seed.customSections || [],
   };
 }
 
