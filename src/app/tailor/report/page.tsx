@@ -542,15 +542,18 @@ function ReportContent() {
             const hMM = lr.h * mmPerCssPx;
             try {
               // @ts-ignore typings may vary
-              if (typeof (pdf as any).link === 'function') {
-                (pdf as any).link(xMM, yMM, wMM, hMM, { url: lr.href });
-              } else if ((pdf as any).textWithLink) {
-                // Fallback: invisible space with link if link() not present
-                (pdf as any).setTextColor(255, 255, 255);
-                (pdf as any).textWithLink(' ', xMM, yMM + hMM / 2, { url: lr.href });
-                (pdf as any).setTextColor(0, 0, 0);
+              const inst: any = pdf as any;
+              if (typeof inst.link === 'function') {
+                inst.link(xMM, yMM, Math.max(wMM, 2), Math.max(hMM, 2), { url: lr.href });
+              } else if (typeof inst.textWithLink === 'function') {
+                const prev = inst.getTextColor ? inst.getTextColor() : undefined;
+                inst.setTextColor?.(0, 0, 255);
+                inst.textWithLink('•', xMM + wMM / 2, yMM + hMM / 2, { url: lr.href });
+                if (prev) inst.setTextColor?.(prev);
               }
-            } catch { /* ignore link annotation failures */ }
+            } catch {
+              /* ignore link annotation failures */
+            }
           }
 
           yOffsetPx += pageCanvas.height;
@@ -570,7 +573,11 @@ function ReportContent() {
     toast({ title: 'Generating Word document...', description: 'Please wait a moment.' });
 
     try {
-      const { saveAs } = (await import('file-saver'));
+      const saveAsModule = await import('file-saver');
+      const saveAs = (saveAsModule as any).saveAs ?? (saveAsModule as any).default;
+      if (!saveAs) {
+        throw new Error('File saver unavailable');
+      }
       const { generateDocx } = await import('@/lib/docx-generator');
       const blob = await generateDocx(resumeData);
       saveAs(blob, 'resume.docx');
@@ -614,7 +621,11 @@ function ReportContent() {
   const handleDownloadCoverLetterDocx = async () => {
     if (!fullReport?.coverLetter) return;
     try {
-      const { saveAs } = await import('file-saver');
+      const saveAsModule = await import('file-saver');
+      const saveAs = (saveAsModule as any).saveAs ?? (saveAsModule as any).default;
+      if (!saveAs) {
+        throw new Error('File saver unavailable');
+      }
       const { generateCoverLetterDocx } = await import('@/lib/docx-cover-letter');
       const blob = await generateCoverLetterDocx(fullReport.coverLetter);
       saveAs(blob, 'cover-letter.docx');
@@ -1002,29 +1013,6 @@ function ReportContent() {
                             )}
                         </CardContent>
                     </Card>
-                    <Card className="md:col-span-2">
-                        <CardHeader>
-                            <CardTitle>Suggested Courses &amp; Certifications</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="mb-4 text-muted-foreground">Consider these courses or certifications to fill skill gaps and strengthen your profile.</p>
-                            {fullReport.suggestedCertifications && fullReport.suggestedCertifications.length > 0 ? (
-                                <ul className="space-y-3">
-                                {fullReport.suggestedCertifications.map((cert: {name: string; url: string}, index: number) => (
-                                    <li key={index} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted">
-                                    <Award className="h-5 w-5 text-amber-500 mt-0.5 shrink-0"/>
-                                    <a href={cert.url} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline flex items-center gap-1.5">
-                                        {cert.name}
-                                        <LinkIcon className="h-3 w-3" />
-                                    </a>
-                                    </li>
-                                ))}
-                                </ul>
-                            ) : (
-                                <div className="text-sm text-muted-foreground">No specific certifications were suggested for this role.</div>
-                            )}
-                        </CardContent>
-                    </Card>
                 </div>
             )}
       </TabsContent>
@@ -1145,6 +1133,3 @@ export default function ReportPage() {
         </div>
     )
 }
-
-
-

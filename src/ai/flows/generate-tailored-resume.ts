@@ -11,6 +11,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {z} from 'zod';
 import {
   GenerateTailoredResumeInputSchema,
   GenerateTailoredResumeInput,
@@ -22,7 +23,9 @@ import {
   SkillAnalysisOutput,
   InterviewPrepOutputSchema,
   InterviewPrepOutput,
+  AtsScoreBreakdownSchema,
 } from '../schemas/tailored-resume-schema';
+import {GenerateStructuredResumeOutputSchema} from '../schemas/resume-schema';
 
 // Re-export common types for convenience in UI components
 export type {
@@ -58,11 +61,22 @@ export async function generateInterviewPrep(input: GenerateTailoredResumeInput):
 
 
 // Main prompt for Resume + Scores
+const TailoredResumeModelOutputSchema = z.object({
+  initialAtsScore: z.number().describe('ATS score for the original resume.'),
+  tailoredAtsScore: z.number().describe('ATS score for the tailored resume.'),
+  atsScoreBreakdown: AtsScoreBreakdownSchema.describe('Breakdown of initial ATS score.'),
+  tailoredResumeJson: z
+    .string()
+    .describe(
+      'A JSON string matching the GenerateStructuredResumeOutputSchema format (basics, education, experience, skills, certifications, languages, customSections).'
+    ),
+});
+
 const resumePrompt = ai.definePrompt({
   name: 'generateTailoredResumePrompt',
   model: 'googleai/gemini-2.5-flash',
   input: {schema: GenerateTailoredResumeInputSchema},
-  output: {schema: GenerateTailoredResumeOutputSchema},
+  output: {schema: TailoredResumeModelOutputSchema},
   prompt: `You are an expert resume tailor and career coach. Given a resume and a job description, you will generate a tailored resume and analyze its effectiveness.
 
 Resume to be tailored:
@@ -80,7 +94,7 @@ Follow these instructions precisely (strict non-hallucination policy):
     - Preserve all factual information from the original resume (roles, companies, dates, education, certifications). Do NOT invent new employers, roles, dates, degrees, certifications, or projects.
     - Do NOT add new tools/technologies/skills unless they are already present or clearly implied by the user's existing responsibilities. If a keyword from the job description cannot be supported by the user's stated experience, do NOT include it.
     - Keep original responsibilities and achievements. You may lightly rephrase and weave in supported keywords, but do not remove content or fabricate outcomes.
-    - The output for 'tailoredResume' MUST be a structured JSON object. Each task/bullet point in the experience description must start with '- ' and be on a new line.
+    - The output for 'tailoredResumeJson' MUST be a JSON string. It must parse into an object with keys: basics { name, email, phone, location, summary, photo?, links: [{label,url}] }, education [{school, degree, year}], experience [{company, role, years, description (each bullet on new line starting with "- ")}], skills [], certifications [], languages [], customSections [{title, content}].
 3.  **Calculate Tailored ATS Score**: Analyze the NEWLY TAILORED resume you just created and provide a new ATS score for it in the 'tailoredAtsScore' field.
 
 DO NOT generate a cover letter, skill gap analysis, or interview questions. Focus only on the resume and scores.
@@ -96,10 +110,23 @@ const generateTailoredResumeFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await resumePrompt(input);
-    if (!output || !output.atsScoreBreakdown) {
+    if (!output || !output.atsScoreBreakdown || !output.tailoredResumeJson) {
       throw new Error('AI returned incomplete output for resume generation.');
     }
-    return output;
+    try {
+      const parsedResume = GenerateStructuredResumeOutputSchema.parse(
+        JSON.parse(output.tailoredResumeJson)
+      );
+      return {
+        initialAtsScore: output.initialAtsScore,
+        tailoredAtsScore: output.tailoredAtsScore,
+        atsScoreBreakdown: output.atsScoreBreakdown,
+        tailoredResume: parsedResume,
+      };
+    } catch (err) {
+      console.error('Failed to parse tailored resume JSON from AI.', err);
+      throw new Error('AI returned an invalid tailored resume JSON structure.');
+    }
   }
 );
 

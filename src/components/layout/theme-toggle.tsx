@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'dark';
+    if (typeof window === 'undefined') return 'light';
     const stored = localStorage.getItem('theme');
     if (stored === 'dark' || stored === 'light') return stored;
-    // Default to dark when no stored preference
-    return 'dark';
+    // Default to light when no stored preference
+    return 'light';
   });
 
   useEffect(() => {

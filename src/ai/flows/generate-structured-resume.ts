@@ -25,11 +25,19 @@ export async function generateStructuredResume(
 }
 
 
+const StructuredResumeModelOutputSchema = z.object({
+  resumeJson: z
+    .string()
+    .describe(
+      'A JSON string matching the GenerateStructuredResumeOutputSchema format (basics, education, experience, skills, certifications, languages, customSections).'
+    ),
+});
+
 const prompt = ai.definePrompt({
   name: 'generateStructuredResumePrompt',
   model: 'googleai/gemini-2.5-flash',
   input: { schema: GenerateStructuredResumeInputSchema },
-  output: { schema: GenerateStructuredResumeOutputSchema },
+  output: { schema: StructuredResumeModelOutputSchema },
   prompt: `You are an expert resume parser. Analyze the following raw text and extract the information into a structured JSON object.
 
 - The user's experience description must be a single string where each bullet point starts on a new line with '- '.
@@ -40,7 +48,7 @@ const prompt = ai.definePrompt({
 Raw Resume Text:
 {{{rawText}}}
 
-Provide the output in the specified JSON format.
+Return a JSON object with a single field 'resumeJson' whose value is the structured resume as a JSON string following the specified format.
 `,
 });
 
@@ -52,6 +60,16 @@ const generateStructuredResumeFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    return output!;
+    if (!output || !output.resumeJson) {
+      throw new Error('AI returned no output for structured resume.');
+    }
+    try {
+      return GenerateStructuredResumeOutputSchema.parse(
+        JSON.parse(output.resumeJson)
+      );
+    } catch (err) {
+      console.error('Failed to parse structured resume JSON from AI.', err);
+      throw new Error('AI returned an invalid structured resume JSON format.');
+    }
   }
 );

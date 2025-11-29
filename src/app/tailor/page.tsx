@@ -73,7 +73,7 @@ export default function TailorPage() {
         <section className="container mx-auto px-4 py-12 md:py-20">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="font-headline text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl animate-fade-in-up">
-              Tailor Your Resume in a Flash
+              Tailor Your Resume 
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
               Upload your resume and a job description to get instant, optimized application materials.

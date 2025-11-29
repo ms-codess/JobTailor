@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
 
 export async function generateCoverLetterDocx(text: string): Promise<Blob> {
   const paragraphs = text
@@ -9,11 +9,6 @@ export async function generateCoverLetterDocx(text: string): Promise<Blob> {
     sections: [
       {
         children: [
-          new Paragraph({
-            children: [new TextRun({ text: 'Cover Letter', bold: true, size: 28 })],
-            alignment: AlignmentType.CENTER,
-          }),
-          new Paragraph({ children: [new TextRun(' ')] }),
           ...paragraphs,
         ],
       },
@@ -22,4 +17,3 @@ export async function generateCoverLetterDocx(text: string): Promise<Blob> {
 
   return Packer.toBlob(doc);
 }
-
