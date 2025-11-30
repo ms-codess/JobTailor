@@ -124,6 +124,7 @@ function ReportContent() {
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const [careerPathData, setCareerPathData] = useState<SuggestCareerPathOutput | null>(null);
   const [loadingCareerPath, setLoadingCareerPath] = useState(false);
+  const [careerPathStarted, setCareerPathStarted] = useState(true);
   const [loadingTabs, setLoadingTabs] = useState({
     'cover-letter': false,
     'skill-analysis': false,
@@ -270,7 +271,7 @@ function ReportContent() {
   }, [searchParams, router, toast]);
 
   useEffect(() => {
-    if (loading || !fullReport || careerPathData) return;
+    if (loading || !fullReport || careerPathData || !careerPathStarted) return;
 
     const fetchCareerPath = async () => {
       const cacheKey = searchParams.get('key');
@@ -306,6 +307,7 @@ function ReportContent() {
   
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    if (tab === 'career-path') setCareerPathStarted(true);
   };
 
   // Auto-fit preview within its container (minimize unused space)
@@ -461,69 +463,51 @@ function ReportContent() {
 
         input.style.transform = originalTransform;
 
-        // Create multipage PDF at A4 with margins; no forced single-page shrink
+        // Render everything onto a single-page PDF by scaling to fit A4 portrait with margins
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         const margin = 10; // mm
-        const renderWidthMM = pageWidth - margin * 2;
-        const mmPerCanvasPx = renderWidthMM / canvas.width; // mm per pixel of the rendered canvas
-        const mmPerCssPx = mmPerCanvasPx * captureScale;    // mm per CSS pixel in DOM coords
-        const sliceHeightPx = Math.floor((pageHeight - margin * 2) / mmPerCanvasPx);
 
-        let yOffsetPx = 0;
-        let isFirstPage = true;
-        while (yOffsetPx < canvas.height) {
-          if (!isFirstPage) pdf.addPage();
-          isFirstPage = false;
+        const targetWidthMM = pageWidth - margin * 2;
+        const targetHeightMM = pageHeight - margin * 2;
 
-          const pageCanvas = document.createElement('canvas');
-          pageCanvas.width = canvas.width;
-          pageCanvas.height = Math.min(sliceHeightPx, canvas.height - yOffsetPx);
-          const ctx = pageCanvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(
-              canvas,
-              0, yOffsetPx, canvas.width, pageCanvas.height,
-              0, 0, canvas.width, pageCanvas.height
-            );
-          }
+        const mmPerPx = targetWidthMM / canvas.width;
+        const renderHeightMM = canvas.height * mmPerPx;
 
-          const imgData = pageCanvas.toDataURL('image/png');
-          const renderHeightMM = pageCanvas.height * mmPerCanvasPx;
-          pdf.addImage(imgData, 'PNG', margin, margin, renderWidthMM, renderHeightMM);
+        // If content is too tall, reduce scale to fit height as well
+        const heightScale = targetHeightMM / renderHeightMM;
+        const finalScale = Math.min(1, heightScale);
 
-          // Add clickable link annotations mapped from DOM positions
-          for (const lr of linkRects) {
-            const top = lr.y;
-            const bottom = lr.y + lr.h;
-            const sliceTop = yOffsetPx;
-            const sliceBottom = yOffsetPx + pageCanvas.height;
-            // Skip links that don't intersect this slice
-            if (bottom <= sliceTop || top >= sliceBottom) continue;
+        const finalWidthMM = targetWidthMM * finalScale;
+        const finalHeightMM = renderHeightMM * finalScale;
+        const offsetX = (pageWidth - finalWidthMM) / 2;
+        const offsetY = (pageHeight - finalHeightMM) / 2;
 
-            const xMM = margin + lr.x * mmPerCssPx;
-            const yMM = margin + (lr.y - yOffsetPx) * mmPerCssPx;
-            const wMM = lr.w * mmPerCssPx;
-            const hMM = lr.h * mmPerCssPx;
-            try {
-              // @ts-ignore typings may vary
-              const inst: any = pdf as any;
-              if (typeof inst.link === 'function') {
-                inst.link(xMM, yMM, Math.max(wMM, 2), Math.max(hMM, 2), { url: lr.href });
-              } else if (typeof inst.textWithLink === 'function') {
-                const prev = inst.getTextColor ? inst.getTextColor() : undefined;
-                inst.setTextColor?.(0, 0, 255);
-                inst.textWithLink('•', xMM + wMM / 2, yMM + hMM / 2, { url: lr.href });
-                if (prev) inst.setTextColor?.(prev);
-              }
-            } catch {
-              /* ignore link annotation failures */
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', offsetX, offsetY, finalWidthMM, finalHeightMM);
+
+        // Add clickable link annotations mapped from DOM positions (scaled)
+        for (const lr of linkRects) {
+          const xMM = offsetX + lr.x * mmPerPx * finalScale;
+          const yMM = offsetY + lr.y * mmPerPx * finalScale;
+          const wMM = lr.w * mmPerPx * finalScale;
+          const hMM = lr.h * mmPerPx * finalScale;
+          try {
+            const inst: any = pdf as any;
+            if (typeof inst.link === 'function') {
+              inst.link(xMM, yMM, Math.max(wMM, 2), Math.max(hMM, 2), { url: lr.href });
+            } else if (typeof inst.textWithLink === 'function') {
+              const prev = inst.getTextColor ? inst.getTextColor() : undefined;
+              inst.setTextColor?.(0, 0, 255);
+              inst.textWithLink('•', xMM + wMM / 2, yMM + hMM / 2, { url: lr.href });
+              if (prev) inst.setTextColor?.(prev);
             }
+          } catch {
+            /* ignore link annotation failures */
           }
-
-          yOffsetPx += pageCanvas.height;
         }
+
         pdf.save('resume.pdf');
     } catch (error) {
         console.error("Failed to export PDF", error);
@@ -545,7 +529,7 @@ function ReportContent() {
         throw new Error('File saver unavailable');
       }
       const { generateDocx } = await import('@/lib/docx-generator');
-      const blob = await generateDocx(resumeData);
+      const blob = await generateDocx(resumeData, template as 'classic' | 'modern' | 'creative');
       saveAs(blob, 'resume.docx');
     } catch (error) {
       console.error("Failed to export DOCX", error);
@@ -557,7 +541,7 @@ function ReportContent() {
 
   const handleDownloadCoverLetter = async () => {
     if (!fullReport?.coverLetter) return;
-
+    const signature = resumeData?.basics?.name || '';
     try {
         const { default: jsPDF } = await import('jspdf');
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -568,12 +552,62 @@ function ReportContent() {
 
         pdf.setFont('times', 'normal');
         pdf.setFontSize(11);
-        // Slightly tighter than default for better density
+        // Looser line height for readability
         // @ts-ignore: jsPDF typings may not include setLineHeightFactor
-        if (pdf.setLineHeightFactor) pdf.setLineHeightFactor(1.3);
+        if (pdf.setLineHeightFactor) pdf.setLineHeightFactor(1.6);
 
-        const textLines = pdf.splitTextToSize(fullReport.coverLetter, contentWidth);
-        pdf.text(textLines, margin, margin);
+        const rawParagraphs = fullReport.coverLetter
+          .split(/\n\s*\n/)
+          .map(l => l.trim())
+          .filter(Boolean);
+
+        // Remove embedded signature/closing if present
+        let paragraphs = [...rawParagraphs];
+        const sigName = signature.toLowerCase();
+        paragraphs = paragraphs.filter(p => {
+          const low = p.toLowerCase();
+          if (low.includes('sincerely')) return false;
+          if (sigName && low.includes(sigName)) return false;
+          if (low.startsWith('dear ')) return false;
+          return true;
+        });
+
+        if (paragraphs.length <= 1) {
+          const sentences = fullReport.coverLetter
+            .replace(/\n+/g, ' ')
+            .split(/(?<=[.?!])\s+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+          const grouped: string[] = [];
+          for (let i = 0; i < sentences.length; i++) {
+            if (!sentences[i].toLowerCase().startsWith('dear ')) grouped.push(sentences[i]);
+          }
+          paragraphs = grouped;
+        }
+
+        let y = margin;
+        const greeting = paragraphs[0]?.startsWith('Dear') ? paragraphs[0] : 'Dear Hiring Manager,';
+        const greetLines = pdf.splitTextToSize(greeting, contentWidth);
+        pdf.text(greetLines, margin, y);
+        y += greetLines.length * 7 + 6; // blank line after greeting
+
+        const body = paragraphs.slice(1);
+        body.forEach(line => {
+          const wrapped = pdf.splitTextToSize(line, contentWidth);
+          pdf.text(wrapped, margin, y);
+          y += wrapped.length * 7 + 8;
+        });
+
+        const closing = 'Sincerely,';
+        y += 8;
+        pdf.text(pdf.splitTextToSize(closing, contentWidth), margin, y);
+        y += 14;
+
+        if (signature) {
+          y += 4;
+          const sigWrapped = pdf.splitTextToSize(signature, contentWidth);
+          pdf.text(sigWrapped, margin, y);
+        }
         pdf.save('cover-letter.pdf');
     } catch (e: any) {
         toast({
@@ -586,6 +620,7 @@ function ReportContent() {
 
   const handleDownloadCoverLetterDocx = async () => {
     if (!fullReport?.coverLetter) return;
+    const signature = resumeData?.basics?.name || '';
     try {
       const saveAsModule = await import('file-saver');
       const saveAs = (saveAsModule as any).saveAs ?? (saveAsModule as any).default;
@@ -593,7 +628,7 @@ function ReportContent() {
         throw new Error('File saver unavailable');
       }
       const { generateCoverLetterDocx } = await import('@/lib/docx-cover-letter');
-      const blob = await generateCoverLetterDocx(fullReport.coverLetter);
+      const blob = await generateCoverLetterDocx(fullReport.coverLetter, signature);
       saveAs(blob, 'cover-letter.docx');
     } catch (e: any) {
       toast({ title: 'Download Failed', description: e.message || 'Could not download cover letter.', variant: 'destructive' });
@@ -638,7 +673,7 @@ function ReportContent() {
   );
 
 
-  if (loading) {
+  if (loading || (!fullReport && !errorMessage)) {
     return (
         <div className="w-full flex justify-center items-center py-20">
             <Card>
@@ -678,7 +713,14 @@ function ReportContent() {
             <TabsTrigger value="cover-letter"><FileText className='w-4 h-4 mr-2'/>Cover Letter</TabsTrigger>
             <TabsTrigger value="skill-analysis"><Brain className='w-4 h-4 mr-2'/>Skill Analysis</TabsTrigger>
             <TabsTrigger value="interview-prep"><MessageSquareQuote className='w-4 h-4 mr-2'/>Interview Prep</TabsTrigger>
-            <TabsTrigger value="career-path"><Briefcase className='w-4 h-4 mr-2'/>Career Path</TabsTrigger>
+            <TabsTrigger value="career-path">
+              {loadingCareerPath && !careerPathData ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Briefcase className='w-4 h-4 mr-2'/>
+              )}
+              Career Path
+            </TabsTrigger>
       </TabsList>
       
        <TabsContent value="analysis" className="mt-6">
@@ -1005,10 +1047,14 @@ function ReportContent() {
                         {careerPathData.suggestedCertifications.map((cert: {name: string; url: string}, index: number) => (
                             <li key={index} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted">
                             <Award className="h-5 w-5 text-amber-500 mt-0.5 shrink-0"/>
-                            <a href={cert.url} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline flex items-center gap-1.5">
-                                {cert.name}
-                                <LinkIcon className="h-3 w-3" />
-                            </a>
+                            {cert.url && cert.url.startsWith('http') ? (
+                              <a href={cert.url} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline flex items-center gap-1.5">
+                                  {cert.name}
+                                  <LinkIcon className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">{cert.name}</span>
+                            )}
                             </li>
                         ))}
                         </ul>

@@ -50,7 +50,7 @@ Resume Text:
 Based on the resume, provide the following in a structured JSON format:
 1.  **Career Suggestions**: Identify 2-3 potential career paths that align with the user's experience and skills. For each path, provide a title and a brief description of why it's a good match.
 2.  **Possible Job Positions**: List several concrete job titles that the user could search for right now.
-3.  **Suggested Certifications**: Recommend relevant certifications or courses that would strengthen the user's profile for these career paths. Provide a name and a direct URL for each.
+3.  **Suggested Certifications**: Recommend relevant certifications or courses that would strengthen the user's profile for these career paths. Provide a name and a direct, reputable URL for each (no placeholders or generic homepages).
 `,
 });
 

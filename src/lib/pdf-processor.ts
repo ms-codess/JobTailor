@@ -8,6 +8,7 @@ export async function processPdf(file: File): Promise<string> {
   const pdfjs = await import('pdfjs-dist');
   // Use a dynamic import to get the URL of the worker script
   const pdfjsWorker = (await import('pdfjs-dist/build/pdf.worker.mjs')).default;
+  const hyperlinkRegex = /\bhttps?:\/\/[^\s"']+/gi;
   
   // pdf.js expects a URL to the worker script
   if (typeof window !== 'undefined') {
@@ -18,12 +19,30 @@ export async function processPdf(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   let fullText = '';
+  const links: string[] = [];
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     fullText +=
       textContent.items.map((item) => ('str' in item ? item.str : '')).join(' ') + '\n';
+
+    // Capture hyperlink annotations per page
+    const annotations = await page.getAnnotations();
+    const pageLinks = annotations
+      .filter((a: any) => a?.url)
+      .map((a: any) => `${a.url}`);
+    if (pageLinks.length > 0) {
+      links.push(...pageLinks);
+    }
+  }
+
+  // If still no links, attempt to find URLs in text
+  if (links.length === 0) {
+    const found = fullText.match(hyperlinkRegex);
+    if (found) {
+      links.push(...found);
+    }
   }
 
   // Fallback to AI OCR if standard extraction fails
@@ -42,10 +61,22 @@ export async function processPdf(file: File): Promise<string> {
         const imageDataUri = canvas.toDataURL('image/jpeg');
         const result = await extractTextFromImage({ imageDataUri });
         ocrText += result.extractedText + '\n';
+
+        // Attempt to pull URLs from OCR text if none yet
+        if (links.length === 0) {
+          const found = result.extractedText.match(hyperlinkRegex);
+          if (found) links.push(...found);
+        }
       }
+    }
+    if (links.length) {
+      ocrText += `\nLinks:\n${links.join('\n')}`;
     }
     return ocrText;
   }
 
+  if (links.length) {
+    fullText += `\nLinks:\n${links.join('\n')}`;
+  }
   return fullText;
 }

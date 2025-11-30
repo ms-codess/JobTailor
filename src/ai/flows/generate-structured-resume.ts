@@ -43,7 +43,8 @@ const prompt = ai.definePrompt({
 - The user's experience description must be a single string where each bullet point starts on a new line with '- '.
 - Extract certifications into the 'certifications' array.
 - Extract languages into the 'languages' array.
-- If there are sections that don't fit into basics, education, experience, skills, certifications or languages, add them to the 'customSections' array.
+- Extract links as {label, url} pairs only when a full URL is present in the text (e.g., https://...). Do NOT invent URLs. If only a label like "LinkedIn" is present without a URL, omit it.
+- If there are sections that don't fit into basics, education, experience, skills, certifications or languages (e.g., "Honors & Activities", "Projects", "Awards", "Presentations"), add them to the 'customSections' array with the original section title and content (bullets remain as lines, each starting with '- ').
 
 Raw Resume Text:
 {{{rawText}}}

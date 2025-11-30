@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateHash } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const ResumeInputForm = dynamic(() => import('@/components/job-tailor/resume-input-form').then(mod => mod.ResumeInputForm), {
   ssr: false,
@@ -28,8 +29,14 @@ const ResumeInputForm = dynamic(() => import('@/components/job-tailor/resume-inp
 
 export default function TailorPage() {
   const [loading, setLoading] = useState(false);
+  const [isNavigating, startTransition] = useTransition();
   const router = useRouter();
   const { toast } = useToast();
+
+  // Prefetch the report route to reduce perceived delay after clicking "Generate"
+  useEffect(() => {
+    router.prefetch('/tailor/report');
+  }, [router]);
 
   const handleGenerateFull = (
     resumeText: string,
@@ -104,7 +111,3 @@ export default function TailorPage() {
 }
 
     
-
-
-
-

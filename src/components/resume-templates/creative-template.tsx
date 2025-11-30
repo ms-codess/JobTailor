@@ -20,16 +20,14 @@ export function CreativeTemplate({ data }: CreativeTemplateProps) {
 
   return (
     <div className="flex bg-white text-gray-700 font-[system-ui] min-h-[11in] text-[9.5pt] leading-snug">
-      {/* Left Sidebar */}
-      <aside className="w-1/3 bg-gray-50 p-6 text-center flex flex-col items-center">
-        <div className="w-20 h-20 rounded-full bg-teal-500 mb-3 flex items-center justify-center text-white text-4xl font-bold">
-          {basics.name.charAt(0)}
+      {/* Left Sidebar (no photo) */}
+      <aside className="w-1/3 bg-gray-50 p-6 text-left flex flex-col gap-4">
+        <div className="space-y-2">
+          <h1 className="text-xl font-bold text-gray-800 break-words">{basics.name}</h1>
+          <p className="text-[9pt] text-gray-600">{basics.summary}</p>
         </div>
-        <h1 className="text-xl font-bold text-gray-800 break-words">{basics.name}</h1>
-        
-        <p className="text-[9pt] text-left self-start my-4">{basics.summary}</p>
-        
-        <div className="w-full text-left space-y-3 text-[9pt]">
+
+        <div className="w-full space-y-3 text-[9pt]">
           <Section title="Contact">
              <p className="flex items-start gap-2 break-all"><Mail size={11}/> {basics.email}</p>
              <p className="flex items-start gap-2"><Phone size={11}/> {basics.phone}</p>

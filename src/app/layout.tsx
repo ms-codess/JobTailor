@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="dark">
       <body className={cn("font-body antialiased bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-[#141223] dark:via-[#19182d] dark:to-[#1f1e36]", fontBody.variable, fontHeadline.variable)}>
         {/* Global decorative background */}
         <div className="pointer-events-none fixed inset-0 -z-10">
@@ -44,7 +44,6 @@ export default function RootLayout({
     </html>
   );
 }
-
 
 
 

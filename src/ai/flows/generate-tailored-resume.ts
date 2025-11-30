@@ -94,6 +94,11 @@ Follow these instructions precisely (strict non-hallucination policy):
     - Preserve all factual information from the original resume (roles, companies, dates, education, certifications). Do NOT invent new employers, roles, dates, degrees, certifications, or projects.
     - Do NOT add new tools/technologies/skills unless they are already present or clearly implied by the user's existing responsibilities. If a keyword from the job description cannot be supported by the user's stated experience, do NOT include it.
     - Keep original responsibilities and achievements. You may lightly rephrase and weave in supported keywords, but do not remove content or fabricate outcomes.
+    - Use all relevant text in the provided resume; do not drop bullets, sections, or details that map to the schema. If a detail fits an existing section, keep it there rather than creating a new section. Every job must keep its original task bullets; do not leave experience descriptions empty. Tailor by rewording/ordering the existing bullets, NOT by inventing new ones. Preserve extra sections like Honors & Activities/Projects by placing them in customSections.
+    - If the resume contains a thesis/dissertation, place it under the corresponding education entry (e.g., master’s degree) as inline text; do NOT create a separate section or bold title for it.
+    - Only create a 'customSections' entry when content truly does not belong elsewhere. Do not create empty honors/activities; omit the section if there is no content.
+    - For links (LinkedIn, portfolio, etc.), ONLY include links explicitly present in the provided resume text. Do not invent or alter URLs. If no links are present, leave the links array empty.
+    - Fill every section of the schema using only the user-provided resume data (basics, education, experience, skills, certifications, languages). Do NOT create new sections; use 'customSections' only when content truly does not belong in the standard sections. If no content exists for a section, leave it as an empty array/string rather than inventing content.
     - The output for 'tailoredResumeJson' MUST be a JSON string. It must parse into an object with keys: basics { name, email, phone, location, summary, photo?, links: [{label,url}] }, education [{school, degree, year}], experience [{company, role, years, description (each bullet on new line starting with "- ")}], skills [], certifications [], languages [], customSections [{title, content}].
 3.  **Calculate Tailored ATS Score**: Analyze the NEWLY TAILORED resume you just created and provide a new ATS score for it in the 'tailoredAtsScore' field.
 
@@ -109,9 +114,35 @@ const generateTailoredResumeFlow = ai.defineFlow(
     outputSchema: GenerateTailoredResumeOutputSchema,
   },
   async input => {
-    const {output} = await resumePrompt(input);
+    let output: z.infer<typeof TailoredResumeModelOutputSchema> | undefined;
+    try {
+      const res = await resumePrompt(input);
+      output = res.output;
+    } catch (err) {
+      console.error('AI failed to generate tailored resume, returning fallback', err);
+      return {
+        initialAtsScore: 0,
+        tailoredAtsScore: 0,
+        atsScoreBreakdown: {
+          roleMatch: {score: 0, analysis: ''},
+          experienceMatch: {score: 0, analysis: ''},
+          skillsMatch: {score: 0, analysis: ''},
+        },
+        tailoredResume: getEmptyResume({}),
+      };
+    }
+
     if (!output || !output.atsScoreBreakdown || !output.tailoredResumeJson) {
-      throw new Error('AI returned incomplete output for resume generation.');
+      return {
+        initialAtsScore: 0,
+        tailoredAtsScore: 0,
+        atsScoreBreakdown: {
+          roleMatch: {score: 0, analysis: ''},
+          experienceMatch: {score: 0, analysis: ''},
+          skillsMatch: {score: 0, analysis: ''},
+        },
+        tailoredResume: getEmptyResume({}),
+      };
     }
     try {
       const raw = (() => {
@@ -162,21 +193,29 @@ function repairTailoredResume(raw: any) {
   const asArray = (value: any) => (Array.isArray(value) ? value : []);
 
   const basics = raw?.basics ?? {};
-  const links = asArray(basics.links).map((l: any, idx: number) => ({
-    label: asString(l?.label, `Link ${idx + 1}`),
-    url: asString(l?.url ?? l?.href ?? '', ''),
-  }));
+  const links = asArray(basics.links)
+    .map((l: any, idx: number) => {
+      const url = asString(l?.url ?? l?.href ?? '', '').trim();
+      return {
+        label: asString(l?.label, url ? l?.label ?? `Link ${idx + 1}` : ''),
+        url,
+      };
+    })
+    .filter((l: any) => l.url && /^(https?:\/\/|mailto:)/i.test(l.url));
 
   const normalizeExperience = asArray(raw?.experience).map((exp: any) => ({
     company: asString(exp?.company),
     role: asString(exp?.role),
     years: asString(exp?.years),
-    description: asString(exp?.description, '')
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter(Boolean)
-      .map(line => (line.startsWith('-') ? line : `- ${line}`))
-      .join('\n'),
+    description: (() => {
+      const desc = asString(exp?.description, '');
+      return desc
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter(Boolean)
+        .map(line => (line.startsWith('-') ? line : `- ${line}`))
+        .join('\n');
+    })(),
   }));
 
   const normalizeEducation = asArray(raw?.education).map((edu: any) => ({
@@ -185,10 +224,33 @@ function repairTailoredResume(raw: any) {
     year: asString(edu?.year),
   }));
 
-  const normalizeCustomSections = asArray(raw?.customSections).map((section: any) => ({
-    title: asString(section?.title),
-    content: asString(section?.content),
-  }));
+  let normalizeCustomSections = asArray(raw?.customSections)
+    .map((section: any) => ({
+      title: asString(section?.title),
+      content: asString(section?.content),
+    }))
+    .filter((section: any) => section.title || section.content);
+
+  // Move thesis content into matching education entry if present; keep bullets in a dedicated section
+  const thesisIdx = normalizeCustomSections.findIndex(s =>
+    (s.title || '').toLowerCase().includes('thesis')
+  );
+  if (thesisIdx >= 0 && normalizeEducation.length > 0) {
+    const thesis = normalizeCustomSections[thesisIdx];
+    const targetEduIdx =
+      normalizeEducation.findIndex(e => e.degree.toLowerCase().includes('m.')) !== -1
+        ? normalizeEducation.findIndex(e => e.degree.toLowerCase().includes('m.'))
+        : 0;
+    const edu = normalizeEducation[targetEduIdx];
+    const thesisText = `${thesis.title}${thesis.content ? ` — ${thesis.content}` : ''}`;
+    // Keep thesis inline and concise (single line) under degree
+    normalizeEducation[targetEduIdx] = {
+      ...edu,
+      degree: edu.degree ? `${edu.degree} — Thesis: ${thesisText}` : `Thesis: ${thesisText}`,
+    };
+    // Drop detailed thesis section to avoid wall of text
+    normalizeCustomSections = normalizeCustomSections.filter((_, idx) => idx !== thesisIdx);
+  }
 
   const ensureHasBasics = (key: keyof typeof basics) => asString((basics as any)[key]);
 
@@ -274,7 +336,7 @@ Job Description:
 Follow these instructions:
 1.  **Analyze Skill Gaps**: Identify the critical skills and keywords present in the job description that were missing from the original resume.
 2.  **Report on Integrated vs. Missing Keywords**: Assume a colleague has already created a 'tailored resume'. Based on the original resume and the job description, create a list of 'integratedKeywords' (skills that could be realistically added without inventing experience; must be supported or clearly implied by the resume) and 'missingKeywords' (skills that represent a genuine gap and should NOT be added).
-3.  **Suggest Certifications with Links**: Based on the identified skill gaps, suggest relevant online courses or certifications. For each suggestion, provide a 'name' and a 'url'.
+3.  **Suggest Certifications with Links**: Based on the identified skill gaps, suggest relevant online courses or certifications. For each suggestion, provide a 'name' and a 'url'. URLs must be real, direct, and from reputable providers (Coursera, edX, Udemy, vendor sites, etc.); do NOT use placeholders or generic homepages.
 `,
 });
 
