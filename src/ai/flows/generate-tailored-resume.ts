@@ -209,12 +209,21 @@ function repairTailoredResume(raw: any) {
     years: asString(exp?.years),
     description: (() => {
       const desc = asString(exp?.description, '');
-      return desc
+      const lines = desc
         .split('\n')
         .map((line: string) => line.trim())
-        .filter(Boolean)
-        .map(line => (line.startsWith('-') ? line : `- ${line}`))
-        .join('\n');
+        .filter(Boolean);
+      let bullets = lines.map(line => (line.startsWith('-') ? line : `- ${line}`));
+      // If no line breaks provided, split sentences into bullets
+      if (bullets.length === 1 && !bullets[0].includes('\n') && !bullets[0].startsWith('- ')) {
+        const sentenceBullets = bullets[0]
+          .split(/(?<=[.?!])\s+/)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .map(s => (s.startsWith('-') ? s : `- ${s}`));
+        if (sentenceBullets.length > 0) bullets = sentenceBullets;
+      }
+      return bullets.join('\n');
     })(),
   }));
 
