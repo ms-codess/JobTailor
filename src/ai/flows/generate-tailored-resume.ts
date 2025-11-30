@@ -114,35 +114,9 @@ const generateTailoredResumeFlow = ai.defineFlow(
     outputSchema: GenerateTailoredResumeOutputSchema,
   },
   async input => {
-    let output: z.infer<typeof TailoredResumeModelOutputSchema> | undefined;
-    try {
-      const res = await resumePrompt(input);
-      output = res.output;
-    } catch (err) {
-      console.error('AI failed to generate tailored resume, returning fallback', err);
-      return {
-        initialAtsScore: 0,
-        tailoredAtsScore: 0,
-        atsScoreBreakdown: {
-          roleMatch: {score: 0, analysis: ''},
-          experienceMatch: {score: 0, analysis: ''},
-          skillsMatch: {score: 0, analysis: ''},
-        },
-        tailoredResume: getEmptyResume({}),
-      };
-    }
-
+    const { output } = await resumePrompt(input);
     if (!output || !output.atsScoreBreakdown || !output.tailoredResumeJson) {
-      return {
-        initialAtsScore: 0,
-        tailoredAtsScore: 0,
-        atsScoreBreakdown: {
-          roleMatch: {score: 0, analysis: ''},
-          experienceMatch: {score: 0, analysis: ''},
-          skillsMatch: {score: 0, analysis: ''},
-        },
-        tailoredResume: getEmptyResume({}),
-      };
+      throw new Error('AI returned incomplete output for resume generation.');
     }
     try {
       const raw = (() => {
@@ -156,13 +130,7 @@ const generateTailoredResumeFlow = ai.defineFlow(
       const parsed = GenerateStructuredResumeOutputSchema.safeParse(repaired);
       if (!parsed.success) {
         console.error('Tailored resume failed validation after repair', parsed.error);
-        const fallback = getEmptyResume(repaired);
-        return {
-          initialAtsScore: output.initialAtsScore ?? 0,
-          tailoredAtsScore: output.tailoredAtsScore ?? 0,
-          atsScoreBreakdown: output.atsScoreBreakdown,
-          tailoredResume: fallback,
-        };
+        throw new Error('AI returned an invalid tailored resume JSON structure.');
       }
       const parsedResume = parsed.data;
       return {
@@ -173,16 +141,7 @@ const generateTailoredResumeFlow = ai.defineFlow(
       };
     } catch (err) {
       console.error('Failed to parse tailored resume JSON from AI.', err);
-      return {
-        initialAtsScore: output?.initialAtsScore ?? 0,
-        tailoredAtsScore: output?.tailoredAtsScore ?? 0,
-        atsScoreBreakdown: output?.atsScoreBreakdown ?? {
-          roleMatch: {score: 0, analysis: ''},
-          experienceMatch: {score: 0, analysis: ''},
-          skillsMatch: {score: 0, analysis: ''},
-        },
-        tailoredResume: getEmptyResume({}),
-      };
+      throw new Error('AI returned an invalid tailored resume JSON structure.');
     }
   }
 );
