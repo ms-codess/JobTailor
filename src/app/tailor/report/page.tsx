@@ -269,11 +269,12 @@ function ReportContent() {
         if (cachedReport) {
             const reportData = JSON.parse(cachedReport);
             if (isResumeReady(reportData.tailoredResume)) {
-              // Show cached data while regenerating a fresh report in the background
+              // Show cached data immediately and skip regeneration to speed up load
               setFullReport(reportData);
               setResumeData(reportData.tailoredResume);
               setResumeInput(input);
-              // keep loading=true so the waiting screen stays visible until fresh data arrives
+              setLoading(false);
+              return;
             }
             // if incomplete, fall through to regenerate without showing cached version
         }

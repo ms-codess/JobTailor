@@ -1,112 +1,134 @@
-
 'use server';
 
-/**
- * @fileOverview Generates a tailored resume, cover letter, ATS report, skill gaps analysis, and interview Q&A using AI.
- *
- * - generateTailoredResume - A function that generates tailored job application materials.
- * - generateCoverLetter - A function that generates a cover letter.
- * - generateSkillAnalysis - A function that generates a skill analysis.
- * - generateInterviewPrep - A function that generates interview prep materials.
- */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
 import {
   GenerateTailoredResumeInputSchema,
-  GenerateTailoredResumeInput,
   GenerateTailoredResumeOutputSchema,
+  GenerateTailoredResumeInput,
   GenerateTailoredResumeOutput,
+  AtsScoreBreakdownSchema,
   CoverLetterOutputSchema,
   CoverLetterOutput,
   SkillAnalysisOutputSchema,
   SkillAnalysisOutput,
   InterviewPrepOutputSchema,
   InterviewPrepOutput,
-  AtsScoreBreakdownSchema,
-} from '../schemas/tailored-resume-schema';
-import {GenerateStructuredResumeOutputSchema} from '../schemas/resume-schema';
-
-// Re-export common types for convenience in UI components
-export type {
-  GenerateTailoredResumeInput,
-  GenerateTailoredResumeOutput,
-  CoverLetterOutput,
-  SkillAnalysisOutput,
-  InterviewPrepOutput,
 } from '../schemas/tailored-resume-schema';
 
+import { GenerateStructuredResumeOutputSchema } from '../schemas/resume-schema';
 
-// Main function for initial report (Resume + Scores)
+/* -------------------------------------------------------------------------- */
+/*                               SCHEMA FIXES                                  */
+/* -------------------------------------------------------------------------- */
+
+const Num = z.union([
+  z.number(),
+  z.string().regex(/^\d+$/, 'Expected numeric string').transform(Number),
+]);
+
+const TailoredResumeModelOutputSchema = z.object({
+  initialAtsScore: Num,
+  tailoredAtsScore: Num,
+  atsScoreBreakdown: AtsScoreBreakdownSchema,
+  tailoredResumeJson: z.string().describe("STRINGIFIED JSON ONLY"),
+});
+
+/* -------------------------------------------------------------------------- */
+/*                                MAIN PROMPT                                 */
+/* -------------------------------------------------------------------------- */
+
+const resumePrompt = ai.definePrompt({
+  name: 'generateTailoredResumePrompt',
+  model: 'googleai/gemini-2.5-flash',
+  config: { temperature: 0.2 },
+  input: { schema: GenerateTailoredResumeInputSchema },
+  output: { schema: TailoredResumeModelOutputSchema },
+  prompt: `
+You are an expert resume tailor and career coach. Follow a strict NO-HALLUCINATION policy.
+
+INPUT RESUME:
+{{{resumeText}}}
+
+JOB DESCRIPTION:
+{{{jobDescription}}}
+
+YOUR TASKS:
+
+1) ATS SCORE — ORIGINAL RESUME
+- Provide "initialAtsScore" as a number (0–100).
+- Provide "atsScoreBreakdown" with numeric sub-scores and 1–2 sentence explanations.
+
+2) TAILOR THE RESUME — BASED SOLELY ON REAL DATA IN THE PROVIDED RESUME
+- NEVER invent employers, dates, job titles, degrees, certifications, or tools.
+- You MAY rephrase, restructure, or bulletize existing content.
+- You MAY add job-description keywords ONLY if supported by real responsibilities from the resume.
+- Do NOT fabricate achievements, numbers, or technologies.
+- Experiences must contain meaningful bullet points extracted or reworded from the candidate resume.
+
+3) OUTPUT THE TAILORED RESUME
+Provide:
+"tailoredResumeJson": "<STRINGIFIED_JSON>"
+
+The JSON string MUST parse into this exact structure:
+{
+  "basics": {
+    "name": "",
+    "email": "",
+    "phone": "",
+    "location": "",
+    "summary": "",
+    "photo": "",
+    "links": [{ "label": "", "url": "" }]
+  },
+  "education": [{ "school": "", "degree": "", "year": "" }],
+  "experience": [{ 
+     "company": "", 
+     "role": "", 
+     "years": "", 
+     "description": "- bullet1\\n- bullet2"
+  }],
+  "skills": [],
+  "certifications": [],
+  "languages": [],
+  "customSections": [{ "title": "", "content": "" }]
+}
+
+STRICT OUTPUT RULES:
+- DO NOT wrap JSON in backticks.
+- DO NOT prepend explanations.
+- DO NOT include markdown.
+- DO NOT include extra text before or after the object keys.
+- "tailoredResumeJson" MUST be a valid JSON STRING containing ONLY a JSON object.
+
+4) ATS SCORE — TAILORED RESUME
+- Provide "tailoredAtsScore" based on your rewritten resume.
+  `,
+});
+
+/* -------------------------------------------------------------------------- */
+/*                            JSON CLEANING UTILS                             */
+/* -------------------------------------------------------------------------- */
+
+function cleanJsonString(str: string): string {
+  return str
+    .trim()
+    .replace(/^```json/i, '')
+    .replace(/^```/, '')
+    .replace(/```$/, '')
+    .replace(/\n/g, '\\n')
+    .trim();
+}
+
+/* -------------------------------------------------------------------------- */
+/*                         TAILORED RESUME FLOW (MAIN)                        */
+/* -------------------------------------------------------------------------- */
+
 export async function generateTailoredResume(
   input: GenerateTailoredResumeInput
 ): Promise<GenerateTailoredResumeOutput> {
   return generateTailoredResumeFlow(input);
 }
-
-// Function for Cover Letter
-export async function generateCoverLetter(input: GenerateTailoredResumeInput): Promise<CoverLetterOutput> {
-    return generateCoverLetterFlow(input);
-}
-
-// Function for Skill Analysis
-export async function generateSkillAnalysis(input: GenerateTailoredResumeInput): Promise<SkillAnalysisOutput> {
-    return generateSkillAnalysisFlow(input);
-}
-
-// Function for Interview Prep
-export async function generateInterviewPrep(input: GenerateTailoredResumeInput): Promise<InterviewPrepOutput> {
-    return generateInterviewPrepFlow(input);
-}
-
-
-// Main prompt for Resume + Scores
-const TailoredResumeModelOutputSchema = z.object({
-  initialAtsScore: z.number().describe('ATS score for the original resume (0-100).'),
-  tailoredAtsScore: z.number().describe('ATS score for the tailored resume (0-100).'),
-  atsScoreBreakdown: AtsScoreBreakdownSchema.describe('Breakdown of initial ATS score.'),
-  tailoredResumeJson: z
-    .string()
-    .describe(
-      'A JSON string matching the GenerateStructuredResumeOutputSchema format (basics, education, experience, skills, certifications, languages, customSections).'
-    ),
-});
-
-const resumePrompt = ai.definePrompt({
-  name: 'generateTailoredResumePrompt',
-  model: 'googleai/gemini-2.5-flash',
-  input: {schema: GenerateTailoredResumeInputSchema},
-  output: {schema: TailoredResumeModelOutputSchema},
-  prompt: `You are an expert resume tailor and career coach. Given a resume and a job description, you will generate a tailored resume and analyze its effectiveness.
-
-Resume to be tailored:
-{{{resumeText}}}
-
-Job Description to tailor for:
-{{{jobDescription}}}
-
-Follow these instructions precisely (strict non-hallucination policy):
-
-1.  **Calculate Initial ATS Score & Breakdown**: First, analyze the original resume against the job description.
-    - Provide an overall ATS score from 0-100 for it in the 'initialAtsScore' field.
-    - Provide a structured breakdown of this score in 'atsScoreBreakdown'. For each of 'roleMatch', 'experienceMatch', and 'skillsMatch', calculate a 0-100 score and write a brief 1-2 sentence analysis.
-2.  **Generate Tailored Resume (No Inventions)**: Adapt the user's existing resume to better match the job description.
-    - Preserve all factual information from the original resume (roles, companies, dates, education, certifications). Do NOT invent new employers, roles, dates, degrees, certifications, or projects.
-    - Do NOT add new tools/technologies/skills unless they are already present or clearly implied by the user's existing responsibilities. If a keyword from the job description cannot be supported by the user's stated experience, do NOT include it.
-    - Keep every original responsibility and achievement. You may lightly rephrase and weave in supported keywords, but do not remove content or fabricate outcomes. Do NOT drop any bullets; every job must include all the tasks present in the resume.
-    - For each experience, copy every task/bullet from the original resume text. If you cannot tailor a task, keep it verbatim. NEVER leave an experience description empty. If tasks are embedded in sentences/paragraphs, extract and bulletize them—do not skip them.
-    - Use all relevant text in the provided resume; do not drop bullets, sections, or details that map to the schema. If a detail fits an existing section, keep it there rather than creating a new section. Every job must keep its original task bullets; do not leave experience descriptions empty. Tailor by rewording/ordering the existing bullets, NOT by inventing new ones. Preserve extra sections like Honors & Activities/Projects by placing them in customSections.
-    - If the resume contains a thesis/dissertation, place it under the corresponding education entry (e.g., master’s degree) as inline text; do NOT create a separate section or bold title for it.
-    - Only create a 'customSections' entry when content truly does not belong elsewhere. Do not create empty honors/activities; omit the section if there is no content.
-    - For links (LinkedIn, portfolio, etc.), ONLY include links explicitly present in the provided resume text. Do not invent or alter URLs. If no links are present, leave the links array empty.
-    - Fill every section of the schema using only the user-provided resume data (basics, education, experience, skills, certifications, languages). Do NOT create new sections; use 'customSections' only when content truly does not belong in the standard sections. If no content exists for a section, leave it as an empty array/string rather than inventing content.
-    - The output for 'tailoredResumeJson' MUST be a JSON string. It must parse into an object with keys: basics { name, email, phone, location, summary, photo?, links: [{label,url}] }, education [{school, degree, year}], experience [{company, role, years, description (each bullet on new line starting with "- ")}], skills [], certifications [], languages [], customSections [{title, content}].
-3.  **Calculate Tailored ATS Match Level**: Analyze the NEWLY TAILORED resume you just created and provide a new ATS score for it in the 'tailoredAtsScore' field (0-100). Also provide a qualitative match level in plain English (low/medium/high) based on the score.
-
-DO NOT generate a cover letter, skill gap analysis, or interview questions. Focus only on the resume and scores.
-Never invent details not grounded in the provided resume text.
-`,
-});
 
 const generateTailoredResumeFlow = ai.defineFlow(
   {
@@ -115,332 +137,109 @@ const generateTailoredResumeFlow = ai.defineFlow(
     outputSchema: GenerateTailoredResumeOutputSchema,
   },
   async input => {
-    const attempts = 3;
-    let lastError: any = null;
-
-    const extractBulletsFromResumeText = (resumeText: string) => {
-      const lines = (resumeText || '')
-        .split('\n')
-        .map(l => l.trim())
-        .filter(Boolean);
-      const bulletLines = lines.filter(l => /^[-*•]/.test(l) || l.includes('•'));
-      if (bulletLines.length) return bulletLines.map(l => l.replace(/^[•*\-]\s*/, '').trim());
-      // Fallback: split sentences
-      const sentenceLines = (resumeText || '')
-        .split(/(?<=[.?!])\s+/)
-        .map(s => s.trim())
-        .filter(Boolean);
-      return sentenceLines;
-    };
-
-    const parseAndValidate = (rawOutput: typeof TailoredResumeModelOutputSchema._type, resumeText: string) => {
-      if (!rawOutput || !rawOutput.atsScoreBreakdown || !rawOutput.tailoredResumeJson) {
-        throw new Error('AI returned incomplete output for resume generation.');
-      }
-      const raw = (() => {
-        try {
-          return JSON.parse(rawOutput.tailoredResumeJson);
-        } catch {
-          return {};
-        }
-      })();
-      const repaired = repairTailoredResume(raw);
-      const parsed = GenerateStructuredResumeOutputSchema.safeParse(repaired);
-      if (!parsed.success) {
-        console.error('Tailored resume failed validation after repair', parsed.error);
-        throw new Error('AI returned an invalid tailored resume JSON structure.');
-      }
-      const sourceExperience: any[] = Array.isArray(repaired?.experience) ? repaired.experience : [];
-      const normalizeDescription = (desc: string, fallback?: string) => {
-        const base = (desc || '').trim() || (fallback || '').trim() || '';
-        const byLine = base
-          .split(/\r?\n/)
-          .map(s => s.trim())
-          .filter(Boolean);
-        const byBullet = base
-          .split(/[•*]\s+/)
-          .map(s => s.trim())
-          .filter(Boolean);
-        const bySentence = base
-          .split(/(?<=[.?!])\s+/)
-          .map(s => s.trim())
-          .filter(Boolean);
-
-        let candidates = [byLine, byBullet, bySentence].find(arr => arr.length > 0) || [];
-        if (!candidates.length) {
-          candidates = extractBulletsFromResumeText(resumeText);
-        }
-        if (!candidates.length) {
-          throw new Error('Missing tasks for an experience entry.');
-        }
-
-        const deduped: string[] = [];
-        candidates.forEach(item => {
-          const cleaned = item.replace(/^[•*-]\s*/, '').trim();
-          if (cleaned && !deduped.includes(cleaned)) deduped.push(cleaned);
-        });
-
-        if (!deduped.length) {
-          throw new Error('Missing tasks for an experience entry.');
-        }
-
-        return deduped
-          .map(line => (line.startsWith('-') ? line : `- ${line}`))
-          .join('\n');
-      };
-
-      // Final pass: enforce one task per line with "- " prefix and fallback to original text if needed
-      const parsedResume = {
-        ...parsed.data,
-        experience: parsed.data.experience.map((exp, idx) => ({
-          ...exp,
-          description: normalizeDescription(exp.description, sourceExperience[idx]?.description),
-        })),
-      };
-      const anyEmptyTasks = parsedResume.experience.some(exp =>
-        !exp.description ||
-        exp.description
-          .split('\n')
-          .map(l => l.trim())
-          .filter(Boolean).length === 0
-      );
-      if (anyEmptyTasks) {
-        throw new Error('AI returned an experience entry without any tasks/bullets.');
-      }
-      return {
-        initialAtsScore: rawOutput.initialAtsScore,
-        tailoredAtsScore: rawOutput.tailoredAtsScore,
-        atsScoreBreakdown: rawOutput.atsScoreBreakdown,
-        tailoredResume: parsedResume,
-      };
-    };
+    const attempts = 2;
+    let lastErr: any = null;
 
     for (let i = 0; i < attempts; i++) {
       try {
         const { output } = await resumePrompt(input);
-        const result = parseAndValidate(output, input.resumeText);
-        return result;
+        if (!output) throw new Error('AI returned empty output');
+
+        // STEP 1 — CLEAN JSON STRING
+        const cleaned = cleanJsonString(output.tailoredResumeJson);
+
+        // STEP 2 — PARSE JSON
+        let parsed;
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch (e) {
+          throw new Error('Failed to parse JSON from tailoredResumeJson');
+        }
+
+        // STEP 3 — SCHEMA VALIDATION
+        const validated = GenerateStructuredResumeOutputSchema.safeParse(parsed);
+
+        if (!validated.success) {
+          console.error("Resume validation failed", validated.error);
+          throw new Error('AI returned invalid resume schema');
+        }
+
+        return {
+          initialAtsScore: output.initialAtsScore,
+          tailoredAtsScore: output.tailoredAtsScore,
+          atsScoreBreakdown: output.atsScoreBreakdown,
+          tailoredResume: validated.data,
+        };
       } catch (err) {
-        lastError = err;
-        console.warn(`Tailored resume attempt ${i + 1}/${attempts} failed`, err);
-        if (i === attempts - 1) break;
+        lastErr = err;
+        console.warn(`Attempt ${i + 1} failed`, err);
+        if (i === attempts - 1) throw err;
       }
     }
 
-    console.error('Failed to parse tailored resume JSON from AI.', lastError);
-    throw new Error('AI returned an invalid tailored resume JSON structure.');
+    throw lastErr;
   }
 );
 
-function repairTailoredResume(raw: any) {
-  const asString = (value: any, fallback = '') =>
-    typeof value === 'string' ? value : fallback;
-  const asArray = (value: any) => (Array.isArray(value) ? value : []);
-
-  const basics = raw?.basics ?? {};
-  const links = asArray(basics.links)
-    .map((l: any, idx: number) => {
-      const url = asString(l?.url ?? l?.href ?? '', '').trim();
-      return {
-        label: url ? asString(l?.label, url) : '',
-        url,
-      };
-    })
-    .filter((l: any) => l.url && /^(https?:\/\/|mailto:)/i.test(l.url));
-
-  const normalizeExperience = asArray(raw?.experience).map((exp: any) => ({
-    company: asString(exp?.company),
-    role: asString(exp?.role),
-    years: asString(exp?.years),
-    description: (() => {
-      const desc = asString(exp?.description, '');
-      const lines = desc
-        .split('\n')
-        .map((line: string) => line.trim())
-        .filter(Boolean);
-      let bullets = lines.flatMap(line => {
-        // If line already looks like multiple sentences, split into separate bullets
-        const parts = line.split(/(?<=[.?!])\s+/).map(s => s.trim()).filter(Boolean);
-        return parts.map(p => (p.startsWith('-') ? p : `- ${p}`));
-      });
-      // If still only one bullet and no punctuation splits, force it as a single bullet line
-      if (bullets.length === 0 && desc) bullets = [`- ${desc.trim()}`];
-      return bullets.join('\n');
-    })(),
-  }));
-
-  const normalizeEducation = asArray(raw?.education).map((edu: any) => ({
-    school: asString(edu?.school),
-    degree: asString(edu?.degree),
-    year: asString(edu?.year),
-  }));
-
-  let normalizeCustomSections = asArray(raw?.customSections)
-    .map((section: any) => ({
-      title: asString(section?.title),
-      content: asString(section?.content),
-    }))
-    .filter((section: any) => section.title || section.content);
-
-  // Move thesis content into matching education entry if present; keep bullets in a dedicated section
-  const thesisIdx = normalizeCustomSections.findIndex(s =>
-    (s.title || '').toLowerCase().includes('thesis')
-  );
-  if (thesisIdx >= 0 && normalizeEducation.length > 0) {
-    const thesis = normalizeCustomSections[thesisIdx];
-    const targetEduIdx =
-      normalizeEducation.findIndex(e => e.degree.toLowerCase().includes('m.')) !== -1
-        ? normalizeEducation.findIndex(e => e.degree.toLowerCase().includes('m.'))
-        : 0;
-    const edu = normalizeEducation[targetEduIdx];
-    const thesisText = `${thesis.title}${thesis.content ? ` — ${thesis.content}` : ''}`;
-    // Keep thesis inline and concise (single line) under degree
-    normalizeEducation[targetEduIdx] = {
-      ...edu,
-      degree: edu.degree ? `${edu.degree} — Thesis: ${thesisText}` : `Thesis: ${thesisText}`,
-    };
-    // Drop detailed thesis section to avoid wall of text
-    normalizeCustomSections = normalizeCustomSections.filter((_, idx) => idx !== thesisIdx);
-  }
-
-  const ensureHasBasics = (key: keyof typeof basics) => asString((basics as any)[key]);
-
-  return {
-    basics: {
-      name: ensureHasBasics('name'),
-      email: ensureHasBasics('email'),
-      phone: ensureHasBasics('phone'),
-      location: ensureHasBasics('location'),
-      summary: ensureHasBasics('summary'),
-      photo: basics.photo ? asString(basics.photo) : undefined,
-      links,
-    },
-    education: normalizeEducation,
-    experience: normalizeExperience,
-    skills: asArray(raw?.skills).map((s: any) => asString(s)).filter(Boolean),
-    certifications: asArray(raw?.certifications).map((c: any) => asString(c)).filter(Boolean),
-    languages: asArray(raw?.languages).map((l: any) => asString(l)).filter(Boolean),
-    customSections: normalizeCustomSections,
-  };
-}
-
-function getEmptyResume(seed: Partial<ReturnType<typeof repairTailoredResume>>) {
-  return {
-    basics: {
-      name: seed.basics?.name || '',
-      email: seed.basics?.email || '',
-      phone: seed.basics?.phone || '',
-      location: seed.basics?.location || '',
-      summary: seed.basics?.summary || '',
-      photo: seed.basics?.photo,
-      links: seed.basics?.links || [],
-    },
-    education: seed.education || [],
-    experience: seed.experience || [],
-    skills: seed.skills || [],
-    certifications: seed.certifications || [],
-    languages: seed.languages || [],
-    customSections: seed.customSections || [],
-  };
-}
+/* -------------------------------------------------------------------------- */
+/*                       COVER LETTER / SKILL / INTERVIEW                     */
+/* -------------------------------------------------------------------------- */
 
 const coverLetterPrompt = ai.definePrompt({
-  name: "generateCoverLetterPrompt",
-  model: "googleai/gemini-2.5-flash",
+  name: 'generateCoverLetterPrompt',
+  model: 'googleai/gemini-2.5-flash',
   input: { schema: GenerateTailoredResumeInputSchema },
   output: { schema: CoverLetterOutputSchema },
   prompt: `
-You are an expert cover-letter writer. Generate a professionally formatted cover letter that will be exported to DOCX and PDF. Follow ALL rules strictly.
+You are an expert cover-letter writer. Write a concise, professional cover letter.
+- Start with "Dear Hiring Manager," then a blank line.
+- Use 3–4 short paragraphs separated by ONE blank line.
+- Base everything ONLY on the resume and job description. No invented facts.
+- Keep it left-aligned, plain text (no markdown).
 
-FORMAT RULES (EXTREMELY IMPORTANT)
-- Plain text only. No Markdown. No tabs. No indentation.
-- No bullet points, no numbering, no decorative separators.
-- LEFT ALIGN all text naturally. Do NOT add padding spaces to simulate alignment.
-- Header should only be *worded* as right-aligned. (Just write it normally; do NOT insert tabs or spacing tricks.)
-- Each paragraph must be separated by EXACTLY ONE blank line.
-- No extra blank lines at the start or end.
-- No run-on lines; keep reasonable sentence length for DOCX/PDF.
-- Every paragraph must be clean text with no trailing spaces.
-- Do NOT justify, center, or format text.
-
-STRUCTURE (ALL SECTIONS REQUIRED IN THIS ORDER, NO LABELS):
-1) Greeting ONLY: Always start with "Dear Hiring Manager,". Comma included; next sentence starts in a NEW paragraph.
-2) Opening paragraph: role, why you're applying, concise value statement.
-3) Middle paragraph(s) (1-2): relevant experience, quantified achievements, skills matching the JD.
-4) Closing paragraph: enthusiasm, availability, strong finishing line.
-5) Signature: "Sincerely," on its own line, then Full Name on next line.
-
-STRICT RULES ABOUT CONTENT
-- Use ONLY facts from the candidate resume and job description.
-- NEVER invent job titles, skills, projects, employers, degrees, numbers, or addresses.
-- NEVER insert placeholders like "Company Address", "Hiring Team", "Hiring Manager Name" if missing. If employer name is missing, default ONLY to "Dear Hiring Manager,".
-- Do NOT include any section labels or bracketed headings (no "[HEADER]", "[OPENING]", etc.). Output only the content lines and paragraphs.
-- DO NOT include the candidate’s name, phone, email, city, or date at the top. The cover letter should start directly with the greeting.
-
-OUTPUT RULES (FOR DOCX/PDF GENERATION)
-- Output paragraphs EXACTLY in the order above.
-- Each paragraph separated by ONE blank line.
-- Do NOT return a single condensed block. They MUST be real paragraphs.
-- No artificial or fancy spacing.
-
-RESUME:
+Resume:
 {{{resumeText}}}
 
-JOB DESCRIPTION:
+Job Description:
 {{{jobDescription}}}
 `,
 });
 
+export async function generateCoverLetter(input: GenerateTailoredResumeInput): Promise<CoverLetterOutput> {
+  const { output } = await coverLetterPrompt(input);
+  if (!output) throw new Error('AI returned no output for cover letter.');
+  return output;
+}
 
-const generateCoverLetterFlow = ai.defineFlow({
-    name: 'generateCoverLetterFlow',
-    inputSchema: GenerateTailoredResumeInputSchema,
-    outputSchema: CoverLetterOutputSchema,
-}, async (input) => {
-    const { output } = await coverLetterPrompt(input);
-    if (!output) throw new Error('AI returned no output for cover letter.');
-    return output;
-});
-
-// Prompt for Skill Analysis
 const skillAnalysisPrompt = ai.definePrompt({
-    name: 'generateSkillAnalysisPrompt',
-    model: 'googleai/gemini-2.5-flash',
-    input: { schema: GenerateTailoredResumeInputSchema },
-    output: { schema: SkillAnalysisOutputSchema },
-    prompt: `You are an expert resume analyst. Analyze the provided resume against the job description under a strict non-hallucination policy.
+  name: 'generateSkillAnalysisPrompt',
+  model: 'googleai/gemini-2.5-flash',
+  input: { schema: GenerateTailoredResumeInputSchema },
+  output: { schema: SkillAnalysisOutputSchema },
+  prompt: `
+You are an expert resume analyst. List integrated vs missing keywords and suggest real courses.
 
 Resume:
 {{{resumeText}}}
 
 Job Description:
 {{{jobDescription}}}
-
-Follow these instructions:
-1.  **Analyze Skill Gaps**: Identify the critical skills and keywords present in the job description that were missing from the original resume.
-2.  **Report on Integrated vs. Missing Keywords**: Assume a colleague has already created a 'tailored resume'. Based on the original resume and the job description, create a list of 'integratedKeywords' (skills that could be realistically added without inventing experience; must be supported or clearly implied by the resume) and 'missingKeywords' (skills that represent a genuine gap and should NOT be added).
-3.  **Suggest Certifications with Links**: Based on the identified skill gaps, suggest relevant online courses or certifications. For each suggestion, provide a 'name' and a 'url'. URLs must be real, direct, and from reputable providers (Coursera, edX, Udemy, vendor sites, etc.); do NOT use placeholders or generic homepages.
 `,
 });
 
-const generateSkillAnalysisFlow = ai.defineFlow({
-    name: 'generateSkillAnalysisFlow',
-    inputSchema: GenerateTailoredResumeInputSchema,
-    outputSchema: SkillAnalysisOutputSchema,
-}, async (input) => {
-    const { output } = await skillAnalysisPrompt(input);
-    if (!output) throw new Error('AI returned no output for skill analysis.');
-    return output;
-});
+export async function generateSkillAnalysis(input: GenerateTailoredResumeInput): Promise<SkillAnalysisOutput> {
+  const { output } = await skillAnalysisPrompt(input);
+  if (!output) throw new Error('AI returned no output for skill analysis.');
+  return output;
+}
 
-
-// Prompt for Interview Prep
 const interviewPrepPrompt = ai.definePrompt({
-    name: 'generateInterviewPrepPrompt',
-    model: 'googleai/gemini-2.5-flash',
-    input: { schema: GenerateTailoredResumeInputSchema },
-    output: { schema: InterviewPrepOutputSchema },
-    prompt: `You are an expert career coach. Given a resume and a job description, create a list of likely interview questions and provide strong, concise answers.
+  name: 'generateInterviewPrepPrompt',
+  model: 'googleai/gemini-2.5-flash',
+  input: { schema: GenerateTailoredResumeInputSchema },
+  output: { schema: InterviewPrepOutputSchema },
+  prompt: `
+You are an expert interviewer. Generate concise Q&A pairs tailored to the resume and job.
 
 Resume:
 {{{resumeText}}}
@@ -450,12 +249,8 @@ Job Description:
 `,
 });
 
-const generateInterviewPrepFlow = ai.defineFlow({
-    name: 'generateInterviewPrepFlow',
-    inputSchema: GenerateTailoredResumeInputSchema,
-    outputSchema: InterviewPrepOutputSchema,
-}, async (input) => {
-    const { output } = await interviewPrepPrompt(input);
-    if (!output) throw new Error('AI returned no output for interview prep.');
-    return output;
-});
+export async function generateInterviewPrep(input: GenerateTailoredResumeInput): Promise<InterviewPrepOutput> {
+  const { output } = await interviewPrepPrompt(input);
+  if (!output) throw new Error('AI returned no output for interview prep.');
+  return output;
+}

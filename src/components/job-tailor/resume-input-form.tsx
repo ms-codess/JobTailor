@@ -65,15 +65,22 @@ export function ResumeInputForm({
 
     try {
       let text = '';
-      if (file.type === 'application/pdf') {
+      const nameLower = file.name.toLowerCase();
+      const isPdf = file.type === 'application/pdf' || nameLower.endsWith('.pdf');
+      const isDocx =
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        nameLower.endsWith('.docx');
+      const isTxt = file.type === 'text/plain' || nameLower.endsWith('.txt');
+
+      if (isPdf) {
         const { processPdf } = await import('@/lib/pdf-processor');
         text = await processPdf(file);
-      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        const mammoth = (await import('mammoth')).default;
+      } else if (isDocx) {
+        const mammoth = await import('mammoth');
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         text = result.value;
-      } else if (file.type === 'text/plain') {
+      } else if (isTxt) {
         text = await file.text();
       } else {
         toast({ title: 'Unsupported File Type', description: 'Please upload a PDF, DOCX, or TXT file.', variant: 'destructive' });
