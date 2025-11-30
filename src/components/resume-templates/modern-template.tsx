@@ -50,9 +50,9 @@ export function ModernTemplate({ data }: ModernTemplateProps) {
                 <p className="text-[9pt] text-gray-500">{exp.years}</p>
                 <h3 className="font-semibold text-[11pt] text-gray-800">{exp.role}</h3>
                 <p className="text-[10pt] text-gray-600 mb-1">{exp.company}</p>
-                <div className="prose prose-sm max-w-none text-gray-600 text-[9pt]">
-                   {exp.description.split('\n').map((line, i) => (line.trim() ? <p key={i} className="my-0.5">{line}</p> : null))}
-                </div>
+                <ul className="list-disc list-inside text-[9pt] text-gray-600 space-y-1 pl-1">
+                   {exp.description.split('\n').map((line, i) => (line.trim() ? <li key={i}>{line.replace(/^- /, '').trim()}</li> : null))}
+                </ul>
               </div>
             ))}
           </Section>

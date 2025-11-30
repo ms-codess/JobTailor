@@ -22,7 +22,13 @@ export default function Home() {
   useEffect(() => {
     // Prefetch Path 1 (/tailor) so it opens faster on click
     router.prefetch('/tailor');
+    // Prefetch Path 2 (/build) for faster load
+    router.prefetch('/build');
   }, [router]);
+
+  const navigate = (path: '/tailor' | '/build') => {
+    router.push(path);
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/20">
@@ -59,13 +65,12 @@ export default function Home() {
                 <CardDescription className="flex-grow text-muted-foreground">
                   Upload your resume and a job description to get a tailored version, an ATS score, and a full application kit.
                 </CardDescription>
-                <Link href="/tailor" prefetch passHref onMouseEnter={() => router.prefetch('/tailor')}>
-                  <Button
-                    className="mt-6 w-full"
-                  >
-                    Start Tailoring <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+                <Button
+                  className="mt-6 w-full"
+                  onClick={() => navigate('/tailor')}
+                >
+                  Start Tailoring <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </CardContent>
             </Card>
 
@@ -85,13 +90,12 @@ export default function Home() {
                 <CardDescription className="flex-grow text-muted-foreground">
                   No resume? No problem. Create a polished, professional resume with our step-by-step guided builder.
                 </CardDescription>
-                 <Link href="/build" passHref>
-                   <Button
-                    className="mt-6 w-full"
-                  >
-                    Start Building <ArrowRight className="ml-2 h-4 w-4" />
-                   </Button>
-                </Link>
+                 <Button
+                  className="mt-6 w-full"
+                  onClick={() => navigate('/build')}
+                >
+                  Start Building <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -100,4 +104,3 @@ export default function Home() {
     </div>
   );
 }
-

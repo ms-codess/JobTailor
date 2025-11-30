@@ -58,6 +58,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { normalizeCoverLetterParagraphs } from '@/lib/cover-letter-format';
+
 const ResumeEditor = dynamic(() => import('@/components/job-tailor/resume-editor').then(mod => mod.ResumeEditor), {
     loading: () => (
         <Card className="flex-grow">
@@ -118,10 +120,11 @@ function ReportContent() {
   const [randomFact, setRandomFact] = useState('');
   const [activeTab, setActiveTab] = useState('resume');
   const [resumeView, setResumeView] = useState<'edit' | 'split' | 'preview'>('split');
-  const [previewScale, setPreviewScale] = useState<number>(0.85);
+  const [previewScale, setPreviewScale] = useState<number>(0.65);
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
   const [editorScale, setEditorScale] = useState<number>(0.9);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const [resumeInput, setResumeInput] = useState<GenerateTailoredResumeInput | null>(null);
   const [careerPathData, setCareerPathData] = useState<SuggestCareerPathOutput | null>(null);
   const [loadingCareerPath, setLoadingCareerPath] = useState(false);
   const [careerPathStarted, setCareerPathStarted] = useState(true);
@@ -137,6 +140,19 @@ function ReportContent() {
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const [isLg, setIsLg] = useState(false);
 
+  const isResumeReady = (resume?: ResumeFormData | null) => {
+    if (!resume) return false;
+    const experiences = resume.experience ?? [];
+    if (experiences.length === 0) return false;
+    const everyExperienceHasTasks = experiences.every(exp =>
+      (exp.description || '')
+        .split('\n')
+        .map(l => l.trim())
+        .filter(Boolean).length > 0
+    );
+    return everyExperienceHasTasks;
+  };
+
 
   useEffect(() => {
     if (loading) {
@@ -148,13 +164,25 @@ function ReportContent() {
     }
   }, [loading]);
   
-  const generateAdditionalReportData = async (cacheKey: string, input: GenerateTailoredResumeInput) => {
+  const generateAdditionalReportData = async (
+    cacheKey: string,
+    input: GenerateTailoredResumeInput,
+    scope: Array<'cover-letter' | 'skill-analysis' | 'interview-prep'> = [
+      'cover-letter',
+      'skill-analysis',
+      'interview-prep',
+    ]
+  ) => {
       const existingReportStr = localStorage.getItem(`report_${cacheKey}`);
       const parsedReport = existingReportStr ? JSON.parse(existingReportStr) : {};
 
-      const needsCoverLetter = !parsedReport.coverLetter;
-      const needsSkillAnalysis = !parsedReport.integratedKeywords;
-      const needsInterviewPrep = !parsedReport.interviewQA;
+      const wantsCoverLetter = scope.includes('cover-letter');
+      const wantsSkillAnalysis = scope.includes('skill-analysis');
+      const wantsInterviewPrep = scope.includes('interview-prep');
+
+      const needsCoverLetter = wantsCoverLetter && !parsedReport.coverLetter;
+      const needsSkillAnalysis = wantsSkillAnalysis && !parsedReport.integratedKeywords;
+      const needsInterviewPrep = wantsInterviewPrep && !parsedReport.interviewQA;
 
       if (!needsCoverLetter && !needsSkillAnalysis && !needsInterviewPrep) {
         setFullReport(current => ({...current, ...parsedReport}));
@@ -240,11 +268,14 @@ function ReportContent() {
 
         if (cachedReport) {
             const reportData = JSON.parse(cachedReport);
-            setFullReport(reportData);
-            setResumeData(reportData.tailoredResume);
-            setLoading(false);
-            generateAdditionalReportData(cacheKey, input);
-            return;
+            if (isResumeReady(reportData.tailoredResume)) {
+              // Show cached data while regenerating a fresh report in the background
+              setFullReport(reportData);
+              setResumeData(reportData.tailoredResume);
+              setResumeInput(input);
+              // keep loading=true so the waiting screen stays visible until fresh data arrives
+            }
+            // if incomplete, fall through to regenerate without showing cached version
         }
 
 
@@ -253,11 +284,13 @@ function ReportContent() {
                 resumeText,
                 jobDescription,
             });
+            if (!isResumeReady(response.tailoredResume)) {
+              throw new Error('Tailored resume arrived incomplete. Please try again.');
+            }
             setFullReport(response);
             setResumeData(response.tailoredResume);
+            setResumeInput(input);
             localStorage.setItem(`report_${cacheKey}`, JSON.stringify(response));
-
-            generateAdditionalReportData(cacheKey, { resumeText, jobDescription });
 
         } catch (e: any) {
             setErrorMessage(e?.message || 'An unexpected error occurred while generating your report.');
@@ -310,8 +343,23 @@ function ReportContent() {
     if (tab === 'career-path') setCareerPathStarted(true);
   };
 
+  useEffect(() => {
+    if (!resumeInput || !fullReport) return;
+    const cacheKey = searchParams.get('key') || 'default';
+    if (activeTab === 'cover-letter' && !fullReport.coverLetter && !loadingTabs['cover-letter']) {
+      generateAdditionalReportData(cacheKey, resumeInput, ['cover-letter']);
+    }
+    if (activeTab === 'skill-analysis' && !fullReport.integratedKeywords && !loadingTabs['skill-analysis']) {
+      generateAdditionalReportData(cacheKey, resumeInput, ['skill-analysis']);
+    }
+    if (activeTab === 'interview-prep' && !fullReport.interviewQA && !loadingTabs['interview-prep']) {
+      generateAdditionalReportData(cacheKey, resumeInput, ['interview-prep']);
+    }
+  }, [activeTab, fullReport, resumeInput, searchParams]);
+
   // Auto-fit preview within its container (minimize unused space)
   useEffect(() => {
+    if (activeTab !== 'resume') return;
     if (!previewContainerRef.current) return;
     const container = previewContainerRef.current;
     const ro = new ResizeObserver(() => {
@@ -319,14 +367,14 @@ function ReportContent() {
       const ch = container.clientHeight;
       const pageW = 8.5 * 96; // px
       const pageH = 11 * 96;  // px
-      // Fit to the smaller of width/height to reduce whitespace
+      if (cw === 0 || ch === 0) return;
       const scale = Math.min(cw / pageW, ch / pageH) * 0.99;
       const clamped = Math.max(0.4, Math.min(1.0, scale));
       setPreviewScale(clamped);
     });
     ro.observe(container);
     return () => ro.disconnect();
-  }, [resumeView]);
+  }, [resumeView, resumeData, activeTab]);
 
   // Sectioned editor control
   const [editSection, setEditSection] = useState<'basics' | 'education' | 'experience' | 'skills' | 'custom'>('basics');
@@ -542,6 +590,7 @@ function ReportContent() {
   const handleDownloadCoverLetter = async () => {
     if (!fullReport?.coverLetter) return;
     const signature = resumeData?.basics?.name || '';
+    const paragraphs = normalizeCoverLetterParagraphs(fullReport.coverLetter, signature);
     try {
         const { default: jsPDF } = await import('jspdf');
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -556,58 +605,19 @@ function ReportContent() {
         // @ts-ignore: jsPDF typings may not include setLineHeightFactor
         if (pdf.setLineHeightFactor) pdf.setLineHeightFactor(1.6);
 
-        const rawParagraphs = fullReport.coverLetter
-          .split(/\n\s*\n/)
-          .map(l => l.trim())
-          .filter(Boolean);
-
-        // Remove embedded signature/closing if present
-        let paragraphs = [...rawParagraphs];
-        const sigName = signature.toLowerCase();
-        paragraphs = paragraphs.filter(p => {
-          const low = p.toLowerCase();
-          if (low.includes('sincerely')) return false;
-          if (sigName && low.includes(sigName)) return false;
-          if (low.startsWith('dear ')) return false;
-          return true;
-        });
-
-        if (paragraphs.length <= 1) {
-          const sentences = fullReport.coverLetter
-            .replace(/\n+/g, ' ')
-            .split(/(?<=[.?!])\s+/)
-            .map(s => s.trim())
-            .filter(Boolean);
-          const grouped: string[] = [];
-          for (let i = 0; i < sentences.length; i++) {
-            if (!sentences[i].toLowerCase().startsWith('dear ')) grouped.push(sentences[i]);
-          }
-          paragraphs = grouped;
-        }
-
         let y = margin;
-        const greeting = paragraphs[0]?.startsWith('Dear') ? paragraphs[0] : 'Dear Hiring Manager,';
-        const greetLines = pdf.splitTextToSize(greeting, contentWidth);
-        pdf.text(greetLines, margin, y);
-        y += greetLines.length * 7 + 6; // blank line after greeting
-
-        const body = paragraphs.slice(1);
-        body.forEach(line => {
-          const wrapped = pdf.splitTextToSize(line, contentWidth);
+        const lineHeight = 6;      // mm per line
+        const paragraphGap = 8;    // mm between paragraphs
+        paragraphs.forEach((para) => {
+          const text = para.trim();
+          if (!text) {
+            y += paragraphGap; // single blank line
+            return;
+          }
+          const wrapped = pdf.splitTextToSize(text, contentWidth);
           pdf.text(wrapped, margin, y);
-          y += wrapped.length * 7 + 8;
+          y += wrapped.length * lineHeight + paragraphGap;
         });
-
-        const closing = 'Sincerely,';
-        y += 8;
-        pdf.text(pdf.splitTextToSize(closing, contentWidth), margin, y);
-        y += 14;
-
-        if (signature) {
-          y += 4;
-          const sigWrapped = pdf.splitTextToSize(signature, contentWidth);
-          pdf.text(sigWrapped, margin, y);
-        }
         pdf.save('cover-letter.pdf');
     } catch (e: any) {
         toast({
@@ -621,6 +631,7 @@ function ReportContent() {
   const handleDownloadCoverLetterDocx = async () => {
     if (!fullReport?.coverLetter) return;
     const signature = resumeData?.basics?.name || '';
+    const normalizedCover = normalizeCoverLetterParagraphs(fullReport.coverLetter, signature).join('\n\n');
     try {
       const saveAsModule = await import('file-saver');
       const saveAs = (saveAsModule as any).saveAs ?? (saveAsModule as any).default;
@@ -628,7 +639,7 @@ function ReportContent() {
         throw new Error('File saver unavailable');
       }
       const { generateCoverLetterDocx } = await import('@/lib/docx-cover-letter');
-      const blob = await generateCoverLetterDocx(fullReport.coverLetter, signature);
+      const blob = await generateCoverLetterDocx(normalizedCover);
       saveAs(blob, 'cover-letter.docx');
     } catch (e: any) {
       toast({ title: 'Download Failed', description: e.message || 'Could not download cover letter.', variant: 'destructive' });
@@ -636,9 +647,15 @@ function ReportContent() {
   };
 
 
- const renderApplyRecommendation = (score: number) => {
-    const isLowScore = score < 50;
-    const recommendation = isLowScore
+const scoreToLabel = (score: number) => {
+  if (score >= 70) return 'High Match';
+  if (score >= 40) return 'Medium Match';
+  return 'Low Match';
+};
+
+const renderApplyRecommendation = (score: number) => {
+  const isLowScore = score < 50;
+  const recommendation = isLowScore
       ? {
           Icon: ThumbsDown,
           color: "text-destructive",
@@ -673,7 +690,11 @@ function ReportContent() {
   );
 
 
-  if (loading || (!fullReport && !errorMessage)) {
+  const isWaiting =
+    loading ||
+    (!fullReport && !errorMessage);
+
+  if (isWaiting) {
     return (
         <div className="w-full flex justify-center items-center py-20">
             <Card>
@@ -691,7 +712,7 @@ function ReportContent() {
     );
   }
 
-  if (!fullReport || !resumeData) {
+  if (!fullReport || !resumeData || !fullReport.tailoredResume || !fullReport.tailoredResume.experience?.length) {
      return (
         <div className="w-full flex justify-center items-center py-20">
           <Card>
@@ -734,10 +755,10 @@ function ReportContent() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-8 items-start">
                     <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-primary/10 via-white to-primary/5 rounded-lg">
-                        <div className="text-7xl font-bold text-primary font-headline">
-                            {fullReport.initialAtsScore}
+                        <div className="text-4xl font-bold text-primary font-headline">
+                            {scoreToLabel(fullReport.initialAtsScore)}
                         </div>
-                        <div className="text-sm text-muted-foreground">Initial ATS Score</div>
+                        <div className="text-sm text-muted-foreground">Initial Match Level</div>
                     </div>
                     <div className="space-y-6">
                        <AtsScoreBreakdown breakdown={fullReport.atsScoreBreakdown} />
@@ -883,7 +904,6 @@ function ReportContent() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem onClick={handleExportPDF} disabled={isExporting}>Download as PDF</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleExportDOCX} disabled={isExporting}>Download as Word (.docx)</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -912,23 +932,29 @@ function ReportContent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {loadingTabs['cover-letter'] ? renderTabContentLoader() : (
-                        <>
-                            <Textarea 
-                            value={fullReport.coverLetter || ''}
-                            onChange={(e) => setFullReport({...fullReport, coverLetter: e.target.value})}
-                            className="min-h-[400px] text-sm font-mono"
-                            />
+                        <div className="space-y-4">
+                          {(() => {
+                            const signature = resumeData?.basics?.name || '';
+                            const normalized = normalizeCoverLetterParagraphs(fullReport.coverLetter || '', signature).join('\n\n');
+                            return (
+                              <Textarea
+                                value={normalized}
+                                onChange={(e) => setFullReport({...fullReport, coverLetter: e.target.value})}
+                                className="min-h-[300px] text-sm"
+                              />
+                            );
+                          })()}
                             <div className="flex gap-2">
                               <Button onClick={handleDownloadCoverLetter} disabled={!fullReport.coverLetter}>
                                 <Download className="mr-2 h-4 w-4" />
-                                Download Cover Letter
+                                Download as PDF
                               </Button>
                               <Button variant="secondary" onClick={handleDownloadCoverLetterDocx} disabled={!fullReport.coverLetter}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download as DOCX
                               </Button>
                             </div>
-                        </>
+                        </div>
                     )}
                 </CardContent>
             </Card>
