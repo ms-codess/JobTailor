@@ -7,10 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, ArrowLeft, User as UserIcon } from 'lucide-react';
+import { Loader2, Download, ArrowLeft } from 'lucide-react';
 import type { FormData as ResumeFormData } from '@/types/resume';
 import Link from 'next/link';
 
@@ -44,14 +42,10 @@ const TemplateLoader = () => (
 const ClassicTemplate = dynamic(() => import('@/components/resume-templates/classic-template').then(mod => mod.ClassicTemplate), { loading: () => <TemplateLoader /> });
 const ModernTemplate = dynamic(() => import('@/components/resume-templates/modern-template').then(mod => mod.ModernTemplate), { loading: () => <TemplateLoader /> });
 const CreativeTemplate = dynamic(() => import('@/components/resume-templates/creative-template').then(mod => mod.CreativeTemplate), { loading: () => <TemplateLoader /> });
-const EuropeanClassicTemplate = dynamic(() => import('@/components/resume-templates/european-classic-template').then(mod => mod.EuropeanClassicTemplate), { loading: () => <TemplateLoader /> });
-const EuropeanModernTemplate = dynamic(() => import('@/components/resume-templates/european-modern-template').then(mod => mod.EuropeanModernTemplate), { loading: () => <TemplateLoader /> });
-const EuropeanCreativeTemplate = dynamic(() => import('@/components/resume-templates/european-creative-template').then(mod => mod.EuropeanCreativeTemplate), { loading: () => <TemplateLoader /> });
 
 export default function BuildPreviewPage() {
   const { toast } = useToast();
   const [resumeData, setResumeData] = useState<ResumeFormData | null>(null);
-  const [region, setRegion] = useState<'north-american' | 'european'>('north-american');
   const [template, setTemplate] = useState<'classic' | 'modern' | 'creative'>('classic');
   const [isExporting, setIsExporting] = useState(false);
   const [previewScale, setPreviewScale] = useState(0.85);
@@ -87,19 +81,6 @@ export default function BuildPreviewPage() {
 
   const renderTemplate = () => {
     if (!resumeData) return null;
-    const isEuropean = region === 'european';
-    if (isEuropean) {
-      switch (template) {
-        case 'classic':
-          return <EuropeanClassicTemplate data={resumeData} />;
-        case 'modern':
-          return <EuropeanModernTemplate data={resumeData} />;
-        case 'creative':
-          return <EuropeanCreativeTemplate data={resumeData} />;
-        default:
-          return <EuropeanClassicTemplate data={resumeData} />;
-      }
-    }
     switch (template) {
       case 'classic':
         return <ClassicTemplate data={resumeData} />;
@@ -211,7 +192,7 @@ export default function BuildPreviewPage() {
     try {
       const { saveAs } = await import('file-saver');
       const { generateDocx } = await import('@/lib/docx-generator');
-      const blob = await generateDocx(resumeData);
+      const blob = await generateDocx(resumeData, template);
       saveAs(blob, 'resume.docx');
     } catch (error) {
       console.error('Failed to export DOCX', error);
@@ -271,17 +252,7 @@ export default function BuildPreviewPage() {
             <CardHeader>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <CardTitle className="font-headline text-xl text-foreground">Preview & Download</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="region" className="text-xs">Region</Label>
-                  <Select value={region} onValueChange={(v: any) => setRegion(v)}>
-                    <SelectTrigger id="region" className="w-[150px] h-8">
-                      <SelectValue placeholder="Region" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="north-american">North American</SelectItem>
-                      <SelectItem value="european">European</SelectItem>
-                    </SelectContent>
-                  </Select>
+                 <div className="flex items-center gap-2">
                   <Label htmlFor="template" className="text-xs">Template</Label>
                   <Select value={template} onValueChange={(v: any) => setTemplate(v)}>
                     <SelectTrigger id="template" className="w-[120px] h-8">
@@ -293,7 +264,7 @@ export default function BuildPreviewPage() {
                       <SelectItem value="creative">Creative</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button className="ml-auto btn-primary" size="sm" disabled={isExporting}>
@@ -308,29 +279,6 @@ export default function BuildPreviewPage() {
                 </DropdownMenu>
               </div>
 
-              {region === 'european' && (
-                <Card className="mt-4 border-dashed">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Photo Recommended</CardTitle>
-                    <CardDescription>Upload a professional headshot for this regional format.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-24 w-24">
-                        <AvatarImage src={resumeData?.basics?.photo} />
-                        <AvatarFallback><UserIcon className="h-12 w-12 text-muted-foreground" /></AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col gap-2">
-                        <Input id="photo-upload" type="file" className="hidden" accept="image/png, image/jpeg" onChange={handlePhotoUpload} />
-                        <Button type="button" variant="outline" onClick={() => document.getElementById('photo-upload')?.click()}>Upload Photo</Button>
-                        {resumeData?.basics?.photo && (
-                          <Button type="button" variant="ghost" onClick={() => { const updated = { ...resumeData, basics: { ...resumeData.basics, photo: '' } }; setResumeData(updated); try { localStorage.setItem('build_resume_draft', JSON.stringify(updated)); } catch {} }}>Remove Photo</Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </CardHeader>
             <CardContent className="bg-secondary p-0 h-[calc(110vh-5rem)]" ref={previewContainerRef}>
               <ScrollArea className="h-full pr-0">
@@ -347,4 +295,3 @@ export default function BuildPreviewPage() {
     </div>
   );
 }
-
