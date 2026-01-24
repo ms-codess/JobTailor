@@ -1,7 +1,7 @@
 
 import { z } from 'zod';
 
-// This schema should match the FormData type in src/app/build/page.tsx
+// This schema should match the FormData shape defined in src/types/resume.ts
 export const GenerateStructuredResumeOutputSchema = z.object({
   basics: z.object({
     name: z.string().describe("The user's full name."),
