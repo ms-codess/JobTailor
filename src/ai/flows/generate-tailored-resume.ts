@@ -17,6 +17,7 @@ import {
 } from '../schemas/tailored-resume-schema';
 
 import { GenerateStructuredResumeOutputSchema } from '../schemas/resume-schema';
+import { normalizeResume } from '../normalizers/normalize-resume';
 
 /* -------------------------------------------------------------------------- */
 /*                               SCHEMA FIXES                                  */
@@ -64,7 +65,11 @@ YOUR TASKS:
 - You MAY rephrase, restructure, or bulletize existing content.
 - You MAY add job-description keywords ONLY if supported by real responsibilities from the resume.
 - Do NOT fabricate achievements, numbers, or technologies.
+- Do NOT add new employers/roles/education that are not explicitly present in INPUT RESUME.
 - Experiences must contain meaningful bullet points extracted or reworded from the candidate resume.
+- Keep sections distinct: skills ≠ languages ≠ certifications. Languages belong ONLY in "languages". Certifications belong ONLY in "certifications".
+- Use "customSections" only for substantial sections like Projects, Awards, Volunteering. Do NOT create a custom section for single items (e.g., a thesis). Fold thesis notes into the relevant education entry instead.
+- If you see content that is really languages or certifications, place it in its dedicated section, not under skills.
 
 3) OUTPUT THE TAILORED RESUME
 Provide:
@@ -91,10 +96,12 @@ The JSON string MUST parse into this exact structure:
   "skills": [],
   "certifications": [],
   "languages": [],
-  "customSections": [{ "title": "", "content": "" }]
+"customSections": [{ "title": "", "content": "" }]
 }
 
 STRICT OUTPUT RULES:
+- Respond with JSON string only. No markdown, no prose, no code fences.
+- If you cannot produce valid JSON, return an empty object matching the schema instead of any explanation.
 - DO NOT wrap JSON in backticks.
 - DO NOT prepend explanations.
 - DO NOT include markdown.
@@ -130,6 +137,15 @@ export async function generateTailoredResume(
   return generateTailoredResumeFlow(input);
 }
 
+function sanitizeText(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[^\S\r\n]+/g, ' ')
+    .trim();
+}
+
 const generateTailoredResumeFlow = ai.defineFlow(
   {
     name: 'generateTailoredResumeFlow',
@@ -137,12 +153,16 @@ const generateTailoredResumeFlow = ai.defineFlow(
     outputSchema: GenerateTailoredResumeOutputSchema,
   },
   async input => {
+    const cleanedInput = {
+      resumeText: sanitizeText(input.resumeText),
+      jobDescription: sanitizeText(input.jobDescription),
+    };
     const attempts = 2;
     let lastErr: any = null;
 
     for (let i = 0; i < attempts; i++) {
       try {
-        const { output } = await resumePrompt(input);
+        const { output } = await resumePrompt(cleanedInput);
         if (!output) throw new Error('AI returned empty output');
 
         // STEP 1 — CLEAN JSON STRING
@@ -168,7 +188,7 @@ const generateTailoredResumeFlow = ai.defineFlow(
           initialAtsScore: output.initialAtsScore,
           tailoredAtsScore: output.tailoredAtsScore,
           atsScoreBreakdown: output.atsScoreBreakdown,
-          tailoredResume: validated.data,
+          tailoredResume: normalizeResume(validated.data, { log: true }),
         };
       } catch (err) {
         lastErr = err;

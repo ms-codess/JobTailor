@@ -12,6 +12,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { GenerateStructuredResumeOutputSchema, GenerateStructuredResumeOutput } from '../schemas/resume-schema';
+import { normalizeResume } from '../normalizers/normalize-resume';
 
 const GenerateStructuredResumeInputSchema = z.object({
   rawText: z.string().describe('The raw text content of the resume.'),
@@ -40,6 +41,8 @@ const prompt = ai.definePrompt({
   output: { schema: StructuredResumeModelOutputSchema },
   prompt: `You are an expert resume parser. Analyze the following raw text and extract the information into a structured JSON object.
 
+- Keep sections distinct: skills ≠ languages ≠ certifications. Languages belong only in "languages". Certifications belong only in "certifications".
+- Use "customSections" only for substantial sections like Projects, Awards, Volunteering. Do NOT create a custom section for single items (e.g., a thesis). Fold thesis notes into the relevant education entry instead.
 - The user's experience description must be a single string where each bullet point starts on a new line with '- '.
 - Extract certifications into the 'certifications' array.
 - Extract languages into the 'languages' array.
@@ -65,9 +68,10 @@ const generateStructuredResumeFlow = ai.defineFlow(
       throw new Error('AI returned no output for structured resume.');
     }
     try {
-      return GenerateStructuredResumeOutputSchema.parse(
+      const parsed = GenerateStructuredResumeOutputSchema.parse(
         JSON.parse(output.resumeJson)
       );
+      return normalizeResume(parsed, { log: true });
     } catch (err) {
       console.error('Failed to parse structured resume JSON from AI.', err);
       throw new Error('AI returned an invalid structured resume JSON format.');

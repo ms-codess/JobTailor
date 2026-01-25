@@ -136,7 +136,7 @@ function ReportContent() {
   const [isExporting, setIsExporting] = useState(false);
   // Split layout state
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
-  const [editorWidthPct, setEditorWidthPct] = useState<number>(50);
+  const [editorWidthPct, setEditorWidthPct] = useState<number>(40);
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const [isLg, setIsLg] = useState(false);
 
@@ -369,8 +369,8 @@ function ReportContent() {
       const pageW = 8.5 * 96; // px
       const pageH = 11 * 96;  // px
       if (cw === 0 || ch === 0) return;
-      const scale = Math.min(cw / pageW, ch / pageH) * 0.99;
-      const clamped = Math.max(0.4, Math.min(1.0, scale));
+      const scale = Math.min(cw / pageW, ch / pageH) * 0.95;
+      const clamped = Math.max(0.7, Math.min(1.1, scale));
       setPreviewScale(clamped);
     });
     ro.observe(container);
@@ -862,11 +862,11 @@ const renderApplyRecommendation = (score: number) => {
               </Card>
 
                 <div ref={splitContainerRef} className="flex flex-col lg:flex-row gap-6 items-start w-full">
-                  <Card className="h-[110vh] backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/80 border border-white/50 shadow-xl" style={{ width: isLg ? `${editorWidthPct}%` : '100%' }}>
+                  <Card className="h-[110vh] bg-black border border-slate-800 shadow-xl" style={{ width: isLg ? `${editorWidthPct}%` : '100%' }}>
                     <CardHeader>
                       <CardTitle className="font-headline text-xl text-foreground">Edit</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 h-[calc(110vh-5rem)] overflow-auto">
+                    <CardContent className="p-4 h-[calc(110vh-5rem)] overflow-auto bg-black">
                       <ResumeEditor noScroll resumeData={resumeData} setResumeData={setResumeData} />
                     </CardContent>
                   </Card>
@@ -879,7 +879,7 @@ const renderApplyRecommendation = (score: number) => {
                     onMouseDown={() => setIsDraggingSplit(true)}
                     onTouchStart={() => setIsDraggingSplit(true)}
                   />
-                  <Card className="h-[110vh] backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/80 border border-white/50 shadow-xl" style={{ width: isLg ? `${100 - editorWidthPct}%` : '100%' }}>
+                  <Card className="h-[110vh] bg-black border border-slate-800 shadow-xl" style={{ width: isLg ? `${100 - editorWidthPct}%` : '100%' }}>
                     <CardHeader>
                       <div className="flex items-center justify-between flex-wrap gap-3">
                       <CardTitle className="font-headline text-xl text-foreground whitespace-nowrap">Preview</CardTitle>
@@ -892,8 +892,8 @@ const renderApplyRecommendation = (score: number) => {
                             <SelectContent>
                               <SelectItem value="classic">Classic</SelectItem>
                               <SelectItem value="modern">Modern</SelectItem>
-                              <SelectItem value="creative">Creative</SelectItem>
-                            </SelectContent>
+                            <SelectItem value="creative">Creative</SelectItem>
+                          </SelectContent>
                           </Select>
                         </div>
                         <DropdownMenu>
@@ -909,9 +909,9 @@ const renderApplyRecommendation = (score: number) => {
                         </DropdownMenu>
                       </div>
                     </CardHeader>
-                    <CardContent className="bg-gradient-to-b from-white via-primary/5 to-white p-0 h-[calc(110vh-5rem)]" ref={previewContainerRef}>
-                      <ScrollArea className="h-full pr-0">
-                        <div className="flex justify-center items-center h-full">
+                    <CardContent className="bg-black p-0 h-[calc(110vh-5rem)]" ref={previewContainerRef}>
+                      <ScrollArea className="h-full pr-0 overflow-auto">
+                        <div className="flex justify-center items-start h-full">
                           <div
                             ref={resumePreviewRef}
                             className="w-[8.5in] min-h-[11in] bg-white shadow-lg origin-top"
