@@ -369,8 +369,8 @@ function ReportContent() {
       const pageW = 8.5 * 96; // px
       const pageH = 11 * 96;  // px
       if (cw === 0 || ch === 0) return;
-      const scale = Math.min(cw / pageW, ch / pageH) * 0.95;
-      const clamped = Math.max(0.7, Math.min(1.1, scale));
+      const scale = Math.min(cw / pageW, ch / pageH) * 1.05;
+      const clamped = Math.max(0.85, Math.min(1.2, scale));
       setPreviewScale(clamped);
     });
     ro.observe(container);
@@ -911,7 +911,7 @@ const renderApplyRecommendation = (score: number) => {
                     </CardHeader>
                     <CardContent className="bg-black p-0 h-[calc(110vh-5rem)]" ref={previewContainerRef}>
                       <ScrollArea className="h-full pr-0 overflow-auto">
-                        <div className="flex justify-center items-start h-full">
+                        <div className="flex justify-center items-start min-h-full">
                           <div
                             ref={resumePreviewRef}
                             className="w-[8.5in] min-h-[11in] bg-white shadow-lg origin-top"
